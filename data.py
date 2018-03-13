@@ -73,11 +73,16 @@ def read_data():
     patient_id_list = static_set.iloc[:, 0]
 
     dynamic_set = pd.read_csv("resources/treatment_truncated.csv", encoding="utf-8")
+    max_length = 0
     dynamic_feature = []
     for patient_id in patient_id_list:
-        dynamic_feature.append(dynamic_set.loc[dynamic_set['patient_id'] == patient_id].iloc[:, 3:].as_matrix())
+        one_dynamic_feature = dynamic_set.loc[dynamic_set['patient_id'] == patient_id].iloc[:, 3:].as_matrix()
+        if max_length < one_dynamic_feature.shape[0]:
+            max_length = one_dynamic_feature.shape[0]
+        dynamic_feature.append(one_dynamic_feature)
 
-    dynamic_feature = np.array(dynamic_feature)
+    dynamic_feature = list(map(lambda x: np.pad(x, ((0, max_length-x.shape[0]), (0, 0)), 'constant', constant_values=0), dynamic_feature))
+    dynamic_feature = np.stack(dynamic_feature)
 
     label_set = pd.read_csv('resources/dataset_addmission.csv', encoding='gbk')
     labels = []
