@@ -7,7 +7,7 @@ class DataSet(object):
         self._static_feature = static_feature
         self._dynamic_feature = dynamic_feature
         self._labels = labels
-        self._num_examples = static_feature.shape[0]
+        self._num_examples = labels.shape[0]
         self._epoch_completed = 0
         self._index_in_epoch = 0
 
@@ -22,7 +22,7 @@ class DataSet(object):
             rest_num_examples = self._num_examples - start
             static_rest_part = self._static_feature[start:self._num_examples]
             dynamic_rest_part = self._dynamic_feature[start:self._num_examples]
-            label_rest_part = self._dynamic_feature[start:self._labels]
+            label_rest_part = self._labels[start:self._num_examples]
 
             self._shuffle()
             start = 0
@@ -66,6 +66,10 @@ class DataSet(object):
     def epoch_completed(self):
         return self._epoch_completed
 
+    @epoch_completed.setter
+    def epoch_completed(self, value):
+        self._epoch_completed = value
+
 
 def read_data():
     static_set = pd.read_csv("resources/static_features.csv", encoding='gbk')
@@ -97,5 +101,5 @@ def read_data():
         else:
             label = [0, 0, 0, 1]  # 缺血，出血
         labels.append(label)
-
+    labels = np.array(labels)
     return DataSet(static_feature, dynamic_feature, labels)
