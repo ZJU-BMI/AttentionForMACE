@@ -27,7 +27,6 @@ def evaluate(tol_label, tol_pred, result_file='resources/save/evaluation_result.
     :return: 正确率，AUC，精度，召回率， F1值
     """
     assert tol_label.shape == tol_pred.shape
-    tol_label.astype(np.int32)
     classes = tol_label.shape[1]
 
     y_true = np.argmax(tol_label, axis=1)
@@ -48,7 +47,11 @@ def evaluate(tol_label, tol_pred, result_file='resources/save/evaluation_result.
             f_writer.writerow(f'false positive rate and true positive rate of class {i}')
             f_writer.writerow(fpr)
             f_writer.writerow(tpr)
-        f_writer.writerow([accuracy, auc, precision, recall, f_score])
+        f_writer.writerow(accuracy)
+        f_writer.writerow(auc)
+        f_writer.writerow(precision)
+        f_writer.writerow(recall)
+        f_writer.writerow(f_score)
         f_writer.writerow([])
     return accuracy, auc, precision, result_file, f_score
 
@@ -91,8 +94,12 @@ def basic_lstm_model_experiments():
         tol_label = np.vstack((tol_label, test_y))
 
     result_file = './resources/save/basic_lstm_result.csv'
-    acc, auc, precision, recall, f_score = evaluate(tol_pred, tol_pred, result_file)
-    print(acc, auc, precision, recall, f_score)
+    acc, auc, precision, recall, f_score = evaluate(tol_label, tol_pred, result_file)
+    print(acc)
+    print(auc)
+    print(precision)
+    print(recall)
+    print(f_score)
 
 
 if __name__ == '__main__':
