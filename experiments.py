@@ -44,16 +44,16 @@ def evaluate(tol_label, tol_pred, result_file='resources/save/evaluation_result.
             y_score = tol_pred[:, i]
             y_true = tol_label[:, i]
             fpr, tpr, thresholds = roc_curve(y_true, y_score)
-            f_writer.writerow(f'false positive rate and true positive rate of class {i}')
+            f_writer.writerow('false positive rate and true positive rate of class {}'.format(i))
             f_writer.writerow(fpr)
             f_writer.writerow(tpr)
-        f_writer.writerow(accuracy)
+        f_writer.writerow([accuracy])
         f_writer.writerow(auc)
         f_writer.writerow(precision)
         f_writer.writerow(recall)
         f_writer.writerow(f_score)
         f_writer.writerow([])
-    return accuracy, auc, precision, result_file, f_score
+    return accuracy, auc, precision, recall, f_score
 
 
 def basic_lstm_model_experiments():
@@ -76,7 +76,7 @@ def basic_lstm_model_experiments():
                            ExperimentSetup.batch_size,
                            ExperimentSetup.lstm_size,
                            n_output,
-                           epochs=1000)
+                           epochs=10)
 
     for train_idx, test_idx in split:
         train_static = static_feature[train_idx]

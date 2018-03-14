@@ -13,8 +13,8 @@ class DataSet(object):
 
     def next_batch(self, batch_size):
         if batch_size > self.num_examples:
-            raise ValueError(f'The size of one batch: {batch_size} should be less than the total number of '
-                             f'data: {self.num_examples}')
+            raise ValueError('The size of one batch: {} should be less than the total number of '
+                             'data: {}'.format(batch_size, self.num_examples))
 
         start = self._index_in_epoch
         if start + batch_size > self.num_examples:

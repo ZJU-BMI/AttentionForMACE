@@ -48,15 +48,15 @@ class BasicLSTMModel(object):
         self._sess.run(tf.global_variables_initializer())
         data_set.epoch_completed = 0
 
-        while data_set.epoch_completed < self._epochs:
+        for i in range(self._epochs):
             _, dynamic_feature, labels = data_set.next_batch(self._batch_size)
             self._sess.run(self._train_op, feed_dict={self._x: dynamic_feature,
                                                       self._y: labels})
 
-            if data_set.epoch_completed % 10 == 0:
+            if i % 2 == 0:
                 loss = self._sess.run(self._loss, feed_dict={self._x: data_set.dynamic_feature,
                                                              self._y: data_set.labels})
-                print(f"loss of epoch {data_set.epoch_completed} is {loss}")
+                print("loss of epoch {} is {}".format(i, loss))
 
     def predict(self, dynamic_feature):
         return self._sess.run(self._pred, feed_dict={self._x: dynamic_feature})
