@@ -76,7 +76,7 @@ def basic_lstm_model_experiments():
                            ExperimentSetup.batch_size,
                            ExperimentSetup.lstm_size,
                            n_output,
-                           epochs=50)
+                           epochs=1000)
 
     for train_idx, test_idx in split:
         train_static = static_feature[train_idx]
