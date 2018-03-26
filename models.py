@@ -2,16 +2,15 @@ import tensorflow as tf
 import numpy as np
 
 
-def xavier_init(fan_in, fan_out, constant=1):
+def xavier_init(fan_in, fan_out, constant=1):  # 什么意思
     low = -constant * np.sqrt(6.0 / (fan_in + fan_out))
     high = constant * np.sqrt(6.0 / (fan_in + fan_out))
-    return tf.random_uniform((fan_in, fan_out), minval=low, maxval=high)
+    return tf.random_uniform((fan_in, fan_out), minval=low, maxval=high)  # 产生均匀分布随机数
 
 
 class BasicLSTMModel(object):
-
     def __init__(self, num_features, time_steps, batch_size, lstm_size, n_output, epochs=1000,
-                 output_n_epoch=10, optimizer=tf.train.AdamOptimizer(), name='BaiscLSTMModel'):
+                 output_n_epoch=10, optimizer=tf.train.AdamOptimizer(), name='BasicLSTMModel'):
         """
 
         :param num_features: dimension of input data per time step
@@ -37,13 +36,15 @@ class BasicLSTMModel(object):
             lstm = tf.contrib.rnn.BasicLSTMCell(lstm_size)
             init_state = lstm.zero_state(tf.shape(self._x)[0], tf.float32)
 
-            mask, length = self._length()
+            mask, length = self._length()  # 每个病人的实际天数
             self._hidden, _ = tf.nn.dynamic_rnn(lstm,
                                                 self._x,
                                                 sequence_length=length,
                                                 initial_state=init_state)
-            self._hidden_sum = tf.reduce_sum(self._hidden, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True), (1, lstm_size))
-            self._output = tf.contrib.layers.fully_connected(self._hidden_sum, n_output, activation_fn=tf.identity)
+            self._hidden_sum = tf.reduce_sum(self._hidden, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
+                                                                        (1, lstm_size))  # 这句话是啥意思
+            self._output = tf.contrib.layers.fully_connected(self._hidden_sum, n_output,
+                                                             activation_fn=tf.identity)  # 创建一个权重变量
             self._pred = tf.nn.softmax(self._output, name="pred")
 
             self._loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(self._y, self._output), name='loss')
@@ -63,7 +64,7 @@ class BasicLSTMModel(object):
 
         logged = set()
         while data_set.epoch_completed < self._epochs:
-            _, dynamic_feature, labels = data_set.next_batch(self._batch_size)
+            _, dynamic_feature, labels = data_set.next_batch(self._batch_size)  # 下划线
             self._sess.run(self._train_op, feed_dict={self._x: dynamic_feature,
                                                       self._y: labels})
 
@@ -103,7 +104,8 @@ class BidirectionalLSTMModel(BasicLSTMModel):
                                                               initial_state_fw=self._init_state['forward'],
                                                               initial_state_bw=self._init_state['backward'])
             self._hidden_concat = tf.concat(self._hidden, axis=2)  # 沿着num_features的方向进行拼接
-            self._hidden_sum = tf.reduce_sum(self._hidden_concat) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True), (1, lstm_size * 2))
+            self._hidden_sum = tf.reduce_sum(self._hidden_concat) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
+                                                                            (1, lstm_size * 2))
             self._output = tf.contrib.layers.fuuly_connected(self._hidden_sum, n_output, activation_fn=tf.identity)
             self._pred = tf.nn.softmax(self._output, name="pred")
 
@@ -111,4 +113,3 @@ class BidirectionalLSTMModel(BasicLSTMModel):
             self._train_op = optimizer.minimize(self._loss)
 
             self._sess = tf.Session()
-

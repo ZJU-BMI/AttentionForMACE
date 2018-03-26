@@ -7,7 +7,7 @@ class DataSet(object):
         self._static_feature = static_feature
         self._dynamic_feature = dynamic_feature
         self._labels = labels
-        self._num_examples = labels.shape[0]
+        self._num_examples = labels.shape[0]  # 这是什么意思
         self._epoch_completed = 0
         self._index_in_epoch = 0
 
@@ -24,7 +24,7 @@ class DataSet(object):
             dynamic_rest_part = self._dynamic_feature[start:self._num_examples]
             label_rest_part = self._labels[start:self._num_examples]
 
-            self._shuffle()
+            self._shuffle()  # 打乱
             start = 0
             self._index_in_epoch = batch_size - rest_num_examples
             end = self._index_in_epoch
@@ -74,7 +74,7 @@ class DataSet(object):
 def read_data():
     static_set = pd.read_csv("resources/static_features.csv", encoding='gbk')
     static_feature = static_set.iloc[:, 2:].as_matrix()
-    patient_id_list = static_set.iloc[:, 0]
+    patient_id_list = static_set.iloc[:, 0]  # 切片
 
     dynamic_set = pd.read_csv("resources/treatment_truncated.csv", encoding="utf-8")
     max_length = 0
