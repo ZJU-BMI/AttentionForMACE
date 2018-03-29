@@ -3,6 +3,7 @@ import csv
 import numpy as np
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, recall_score, precision_score, roc_curve
 from sklearn.model_selection import StratifiedShuffleSplit
+import tensorflow as tf
 
 from data import read_data, DataSet
 from models import BasicLSTMModel, BidirectionalLSTMModel
@@ -16,6 +17,7 @@ class ExperimentSetup(object):
     random_state = 1
 
     lstm_size = 200
+    learning_rate = 0.0001
 
 
 def evaluate(tol_label, tol_pred, result_file='resources/save/evaluation_result.csv'):
@@ -83,15 +85,16 @@ def model_experiments(model, data_set, result_file):
         tol_pred = np.vstack((tol_pred, y_score))
         tol_label = np.vstack((tol_label, test_y))
 
-    acc, auc, precision, recall, f_score = evaluate(tol_label, tol_pred, result_file)
-    print("accuracy: ", acc)
-    print("auc: ", auc)
-    print("precision: ", precision)
-    print("recall: ", recall)
-    print("f_score: ", f_score)
+    return evaluate(tol_label, tol_pred, result_file)
+    # acc, auc, precision, recall, f_score = evaluate(tol_label, tol_pred, result_file)
+    # print("accuracy: ", acc)
+    # print("auc: ", auc)
+    # print("precision: ", precision)
+    # print("recall: ", recall)
+    # print("f_score: ", f_score)
 
 
-def basic_lstm_model_experiments():
+def basic_lstm_model_experiments(result_file, epochs, output_n_epoch):
     data_set = read_data()
     dynamic_feature = data_set.dynamic_feature
     labels = data_set.labels
@@ -105,13 +108,13 @@ def basic_lstm_model_experiments():
                            ExperimentSetup.batch_size,
                            ExperimentSetup.lstm_size,
                            n_output,
-                           epochs=10,
-                           output_n_epoch=10)
+                           optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
+                           epochs=epochs,
+                           output_n_epoch=output_n_epoch)
+    return model_experiments(model, data_set, result_file)
 
-    model_experiments(model, data_set, 'resources/save/basic_lstm.csv')
 
-
-def bidirectional_lstm_model_experiments():
+def bidirectional_lstm_model_experiments(result_file, epochs, output_n_epoch):
     data_set = read_data()
     dynamic_feature = data_set.dynamic_feature
     labels = data_set.labels
@@ -125,11 +128,10 @@ def bidirectional_lstm_model_experiments():
                                    ExperimentSetup.batch_size,
                                    ExperimentSetup.lstm_size,
                                    n_output,
-                                   epochs=10,
-                                   output_n_epoch=10)
-
-    model_experiments(model, data_set, 'resources/save/bidirectional_lstm.csv')
+                                   epochs=epochs,
+                                   output_n_epoch=output_n_epoch)
+    return model_experiments(model, data_set, result_file)
 
 
 if __name__ == '__main__':
-    bidirectional_lstm_model_experiments()
+    basic_lstm_model_experiments('resources/save/basic_lstm.csv')
