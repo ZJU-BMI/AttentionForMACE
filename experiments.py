@@ -18,6 +18,8 @@ class ExperimentSetup(object):
 
     lstm_size = 200
     learning_rate = 0.0001
+    epochs = 1000
+    output_n_epochs = 20
 
 
 def evaluate(tol_label, tol_pred, result_file='resources/save/evaluation_result.csv'):
@@ -94,7 +96,7 @@ def model_experiments(model, data_set, result_file):
     # print("f_score: ", f_score)
 
 
-def basic_lstm_model_experiments(result_file, epochs, output_n_epoch):
+def basic_lstm_model_experiments(result_file):
     data_set = read_data()
     dynamic_feature = data_set.dynamic_feature
     labels = data_set.labels
@@ -109,12 +111,12 @@ def basic_lstm_model_experiments(result_file, epochs, output_n_epoch):
                            ExperimentSetup.lstm_size,
                            n_output,
                            optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
-                           epochs=epochs,
-                           output_n_epoch=output_n_epoch)
+                           epochs=ExperimentSetup.epochs,
+                           output_n_epoch=ExperimentSetup.output_n_epochs)
     return model_experiments(model, data_set, result_file)
 
 
-def bidirectional_lstm_model_experiments(result_file, epochs, output_n_epoch):
+def bidirectional_lstm_model_experiments(result_file):
     data_set = read_data()
     dynamic_feature = data_set.dynamic_feature
     labels = data_set.labels
@@ -128,8 +130,8 @@ def bidirectional_lstm_model_experiments(result_file, epochs, output_n_epoch):
                                    ExperimentSetup.batch_size,
                                    ExperimentSetup.lstm_size,
                                    n_output,
-                                   epochs=epochs,
-                                   output_n_epoch=output_n_epoch)
+                                   epochs=ExperimentSetup.epochs,
+                                   output_n_epoch=ExperimentSetup.output_n_epochs)
     return model_experiments(model, data_set, result_file)
 
 
