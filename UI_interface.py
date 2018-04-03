@@ -6,174 +6,142 @@ import experiments
 import _thread
 import sys
 
-root = Tk()
 
-root.geometry('550x320')
-v = IntVar()
-
-Radiobutton(root, text='LSTM', variable=v, value=1).place(x=20, y=20, anchor=W)
-Radiobutton(root, text='Bi-LSTM', variable=v, value=2).place(x=20, y=40, anchor=W)
-Radiobutton(root, text='A-LSTM', variable=v, value=3).place(x=20, y=60, anchor=W)
-
-
-out_file_str = StringVar()  # 输出文件路径
-acc_str = StringVar()
-auc_str = StringVar()
-precision_str = StringVar()
-recall_str = StringVar()
-f_score_str = StringVar()
-epochs_str = StringVar()
-output_n_epoch_str = StringVar()
-lstm_size_str = StringVar()
-
-out_file_str.set("select file")
-
-
-def callback2():
-    filename = askopenfilename()
-    out_file_str.set(filename)
-
-
-textLabel_out_file = Label(textvariable=out_file_str, justify=LEFT)
-textLabel_out_file.place(x=20, y=250, anchor=W)
-
-theButton_select_file = Button(text="选择输出文件", command=callback2)
-theButton_select_file.place(x=20, y=280, anchor=W)
-
-acc_str.set("accuracy")
-auc_str.set("auc")
-precision_str.set("precision")
-recall_str.set("recall")
-f_score_str.set("f_score")
-epochs_str.set("epochs")
-output_n_epoch_str.set("output_n_epochs")
-lstm_size_str.set("lstm_size")
-
-
-loss_out_text = Text(height=4, width=50, state=DISABLED)
-loss_out_text.place(x=150, y=30, anchor=W)
-
-
-class WriteToTextArea(object):
+class UIInterface(object):
     def __init__(self):
-        pass
+        self.root = Tk()
+        self.root.geometry('500x320')
 
-    def write(self, *arg):
-        loss_out_text.config(state=NORMAL)
-        loss_out_text.insert(END, arg[0])
-        loss_out_text.see(END)
-        loss_out_text.config(state=DISABLED)
+        # 创建模型选择的Radio button
+        self._model_selected = IntVar()  # 代表被选择的模型
+        self._model_select_radio_button()
+
+        self.out_file_str = StringVar(value="select file")  # 输出文件路径
+        self._place_some_text()
+        self._place_some_label()
+        self._place_some_button()
+        
+        self._change_stdout()
+
+    def _model_select_radio_button(self):
+        Radiobutton(self.root, text="LSTM", variable=self._model_selected, value=1).place(x=20, y=20, anchor=W)
+        Radiobutton(self.root, text="Bi-LSTM", variable=self._model_selected, value=2).place(x=20, y=40, anchor=W)
+        Radiobutton(self.root, text="A-LSTM", variable=self._model_selected, value=3).place(x=20, y=60, anchor=W)
+
+    def _place_some_label(self):
+        Label(self.root, textvariable=self.out_file_str, justify=LEFT).place(x=20, y=250, anchor=W)
+        Label(textvariable=StringVar(value="epochs"), justify=LEFT).place(x=20, y=90, anchor=W)
+        Label(textvariable=StringVar(value="output_n_epochs"), justify=LEFT).place(x=20, y=130, anchor=W)
+        Label(textvariable=StringVar(value="lstm_size"), justify=LEFT).place(x=20, y=170, anchor=W)
+
+        Label(textvariable=StringVar(value="acc"), justify=LEFT).place(x=150, y=100, anchor=W)
+        Label(textvariable=StringVar(value="auc"), justify=LEFT).place(x=150, y=130, anchor=W)
+        Label(textvariable=StringVar(value="precision"), justify=LEFT).place(x=150, y=160, anchor=W)
+        Label(textvariable=StringVar(value="recall"), justify=LEFT).place(x=150, y=190, anchor=W)
+        Label(textvariable=StringVar(value="f_score"), justify=LEFT).place(x=150, y=220, anchor=W)
+
+    def _place_some_text(self):
+        self.loss_out_text = Text(self.root, height=4, width=50, state=DISABLED)
+        self.loss_out_text.place(x=150, y=30, anchor=W)
+
+        self.epochs_text = Text(self.root, height=1, width=10)
+        self.epochs_text.insert(END, 1000)
+        self.epochs_text.place(x=20, y=110, anchor=W)
+
+        self.output_n_epoch_text = Text(self.root, height=1, width=10)
+        self.output_n_epoch_text.insert(END, 20)
+        self.output_n_epoch_text.place(x=20, y=150, anchor=W)
+
+        self.lstm_size_text = Text(self.root, height=1, width=10)
+        self.lstm_size_text.insert(END, 200)
+        self.lstm_size_text.place(x=20, y=190, anchor=W)
+
+        self.acc_text = Text(height=2, width=40)
+        self.acc_text.place(x=220, y=100, anchor=W)
+
+        self.auc_text = Text(height=2, width=40)
+        self.auc_text.place(x=220, y=130, anchor=W)
+
+        self.precision_text = Text(height=2, width=40)
+        self.precision_text.place(x=220, y=160, anchor=W)
+
+        self.recall_text = Text(height=2, width=40)
+        self.recall_text.place(x=220, y=190, anchor=W)
+
+        self.f_score_text = Text(height=2, width=40)
+        self.f_score_text.place(x=220, y=220, anchor=W)
+
+    def _place_some_button(self):
+        Button(self.root,
+               text='选择输出文件',
+               command=lambda: self.out_file_str.set(askopenfilename())).place(x=20, y=280, anchor=W)
+        Button(self.root,
+               text="确定",
+               command=self._confirm_click).place(x=120, y=280, anchor=W)
+
+    def _confirm_click(self):
+        self.auc_text.delete('1.0', END)
+        self.precision_text.delete('1.0', END)
+        self.recall_text.delete('1.0', END)
+        self.f_score_text.delete('1.0', END)
+        self.loss_out_text.delete('1.0', END)
+
+        value = self._model_selected.get()
+        result_file = self.out_file_str.get()
+        epochs_value = self.epochs_text.get('1.0', END)
+        output_n_epoch_value = self.output_n_epoch_text.get('1.0', END)
+        lstm_size_value = self.lstm_size_text.get('1.0', END)
+        epochs = int(epochs_value)
+        output_n_epoch = int(output_n_epoch_value)
+        lstm_size = int(lstm_size_value)
+        experiments.ExperimentSetup.epochs = epochs
+        experiments.ExperimentSetup.output_n_epochs = output_n_epoch
+        experiments.ExperimentSetup.lstm_size = lstm_size
+
+        if result_file is None:
+            return
+        if value == 0:
+            print("select a model")
+        elif value == 1:
+            print("waiting....")
+            _thread.start_new_thread(self._call_basic_lstm_experiment, (result_file,))
+        elif value == 2:
+            print('waiting....')
+            _thread.start_new_thread(self._call_bi_lstm_experiment, (result_file,))
+        else:
+            pass
+
+    def _call_basic_lstm_experiment(self, result_file):
+        acc, auc, precision, recall, f_score = experiments.basic_lstm_model_experiments(
+            result_file)
+        self.acc_text.insert(END, acc)
+        self.auc_text.insert(END, auc)
+        self.precision_text.insert(END, precision)
+        self.recall_text.insert(END, recall)
+        self.f_score_text.insert(END, f_score)
+
+    def _call_bi_lstm_experiment(self, result_file):
+        acc, auc, precision, recall, f_score = experiments.bidirectional_lstm_model_experiments(
+            result_file)
+        self.acc_text.insert(END, acc)
+        self.auc_text.insert(END, auc)
+        self.precision_text.insert(END, precision)
+        self.recall_text.insert(END, recall)
+        self.f_score_text.insert(END, f_score)
+
+    def show(self):
+        self.root.mainloop()
+
+    def _change_stdout(self):
+        sys.stdout.write = self.__write_to_loss_text
+
+    def __write_to_loss_text(self, *args):
+        self.loss_out_text.config(state=NORMAL)
+        self.loss_out_text.insert(END, args[0])
+        self.loss_out_text.see(END)
+        self.loss_out_text.config(state=DISABLED)
 
 
-sys.stdout = WriteToTextArea()
-
-textLabel_epoch = Label(textvariable=epochs_str, justify=LEFT)
-textLabel_epoch.place(x=20, y=90, anchor=W)
-
-epochs_text = Text(height=1, width=10)
-epochs_text.insert(END, 1000)
-epochs_text.place(x=20, y=110, anchor=W)
-
-textLabel_output_n_epoch = Label(textvariable=output_n_epoch_str, justify=LEFT)
-textLabel_output_n_epoch.place(x=20, y=120)
-
-output_n_epoch_text = Text(height=1, width=10)
-output_n_epoch_text.insert(END, 20)
-output_n_epoch_text.place(x=20, y=150, anchor=W)
-
-textLabel_lstm_size = Label(textvariable=lstm_size_str, justify=LEFT)
-textLabel_lstm_size.place(x=20, y=170, anchor=W)
-
-lstm_size_text = Text(height=1, width=10)
-lstm_size_text.insert(END, 200)
-lstm_size_text.place(x=20, y=190, anchor=W)
-
-textLabel_acc = Label(textvariable=acc_str, justify=LEFT)
-textLabel_acc.place(x=150, y=100, anchor=W)
-
-acc_text = Text(height=2, width=40)
-acc_text.place(x=220, y=100, anchor=W)
-
-textLabel_auc = Label(textvariable=auc_str, justify=LEFT)
-textLabel_auc.place(x=150, y=130, anchor=W)
-
-auc_text = Text(height=2, width=40)
-auc_text.place(x=220, y=130, anchor=W)
-
-textLabel_precision = Label(textvariable=precision_str, justify=LEFT)
-textLabel_precision.place(x=150, y=160, anchor=W)
-
-precision_text = Text(height=2, width=40)
-precision_text.place(x=220, y=160, anchor=W)
-
-textLabel_recall = Label(textvariable=recall_str, justify=LEFT)
-textLabel_recall.place(x=150, y=190, anchor=W)
-
-recall_text = Text(height=2, width=40)
-recall_text.place(x=220, y=190, anchor=W)
-
-textLabel_f = Label(textvariable=f_score_str, justify=LEFT)
-textLabel_f.place(x=150, y=220, anchor=W)
-
-f_score_text = Text(height=2, width=40)
-f_score_text.place(x=220, y=220, anchor=W)
-
-
-def call_basic_lstm_experiment(result_file):
-    acc, auc, precision, recall, f_score = experiments.basic_lstm_model_experiments(
-        result_file)
-    acc_text.insert(END, acc)
-    auc_text.insert(END, auc)
-    precision_text.insert(END, precision)
-    recall_text.insert(END, recall)
-    f_score_text.insert(END, f_score)
-
-
-def call_bidirectional_lstm_model_experiments(result_file):
-    acc, auc, precision, recall, f_score = experiments.bidirectional_lstm_model_experiments(
-        result_file)
-    acc_text.insert(END, acc)
-    auc_text.insert(END, auc)
-    precision_text.insert(END, precision)
-    recall_text.insert(END, recall)
-    f_score_text.insert(END, f_score)
-
-
-def rad_call():
-    acc_text.delete('1.0', END)
-    auc_text.delete('1.0', END)
-    precision_text.delete('1.0', END)
-    recall_text.delete('1.0', END)
-    f_score_text.delete('1.0', END)
-    loss_out_text.delete('1.0', END)
-
-    value = v.get()
-    result_file = out_file_str.get()
-    epochs_value = epochs_text.get('1.0', END)
-    output_n_epoch_value = output_n_epoch_text.get('1.0', END)
-    lstm_size_value = lstm_size_text.get('1.0', END)
-    epochs = int(epochs_value)
-    output_n_epoch = int(output_n_epoch_value)
-    lstm_size = int(lstm_size_value)
-    experiments.ExperimentSetup.epochs = epochs
-    experiments.ExperimentSetup.output_n_epochs = output_n_epoch
-    experiments.ExperimentSetup.lstm_size = lstm_size
-
-    if result_file is None:
-        return
-    if value == 0:
-        print("select a model")
-    elif value == 1:
-        print("waiting....")
-        _thread.start_new_thread(call_basic_lstm_experiment, (result_file, ))
-    elif value == 2:
-        print('waiting....')
-        _thread.start_new_thread(call_bidirectional_lstm_model_experiments, (result_file, ))
-    else:
-        pass
-
-
-theButton_execute = Button(text="确定", command=rad_call)
-theButton_execute.place(x=120, y=280, anchor=W)
-
-root.mainloop()
+if __name__ == "__main__":
+    ui = UIInterface()
+    ui.show()
