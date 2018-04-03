@@ -1,7 +1,6 @@
 from tkinter import *
 from tkinter.filedialog import askopenfilename
 
-# from pandas.tests.indexes.datetimes.test_tools import epochs
 
 import experiments
 import _thread
@@ -141,6 +140,13 @@ def call_bidirectional_lstm_model_experiments(result_file):
 
 
 def rad_call():
+    acc_text.delete('1.0', END)
+    auc_text.delete('1.0', END)
+    precision_text.delete('1.0', END)
+    recall_text.delete('1.0', END)
+    f_score_text.delete('1.0', END)
+    loss_out_text.delete('1.0', END)
+
     value = v.get()
     result_file = out_file_str.get()
     epochs_value = epochs_text.get('1.0', END)
