@@ -1,8 +1,8 @@
 import csv
 
 import numpy as np
-from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, recall_score, precision_score, roc_curve
-from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, recall_score, precision_score, roc_curve #roc计算曲线
+from sklearn.model_selection import StratifiedShuffleSplit #创建随机数并打乱
 import tensorflow as tf
 
 from data import read_data, DataSet
@@ -67,7 +67,7 @@ def model_experiments(model, data_set, result_file):
     split = StratifiedShuffleSplit(ExperimentSetup.kfold, ExperimentSetup.test_size, ExperimentSetup.train_size) \
         .split(static_feature, labels)
 
-    n_output = labels.shape[1]
+    n_output = labels.shape[1] #classes
 
     tol_pred = np.zeros(shape=(0, n_output))
     tol_label = np.zeros(shape=(0, n_output), dtype=np.int32)

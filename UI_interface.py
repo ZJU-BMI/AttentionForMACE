@@ -26,20 +26,30 @@ f_score_str = StringVar()
 epochs_str = StringVar()
 output_n_epoch_str = StringVar()
 lstm_size_str = StringVar()
+input_file_str = StringVar()
+out_file_str.set("select output file")
+input_file_str.set("select input file")
 
-out_file_str.set("select file")
+
+def callback1():
+    input_file = askopenfilename()
+    input_file.set(input_file)
 
 
 def callback2():
     filename = askopenfilename()
     out_file_str.set(filename)
 
-
 textLabel_out_file = Label(textvariable=out_file_str, justify=LEFT)
 textLabel_out_file.place(x=20, y=250, anchor=W)
 
 theButton_select_file = Button(text="选择输出文件", command=callback2)
 theButton_select_file.place(x=20, y=280, anchor=W)
+
+textLabel_
+
+theButton_input_file = Button(text='选择输入文件', command=callback1)
+theButton_input_file.place(x=20, y=2)
 
 acc_str.set("accuracy")
 auc_str.set("auc")
