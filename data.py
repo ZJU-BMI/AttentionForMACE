@@ -71,7 +71,40 @@ class DataSet(object):
         self._epoch_completed = value
 
 
-def read_data():
+def read_data_sun():
+    static_features = []
+    dynamic_features = []
+    labels = []
+    for i in range(5):
+        static_set = pd.read_csv("resources/treatment_5_fold/7Day/s{0}.csv".format(i), index_col=0, encoding='utf-8')
+        static_feature = static_set.as_matrix()
+        static_features.append(static_feature)
+
+        for j in range(7):
+            dynamic_set = pd.read_csv("resources/treatment_5_fold/7Day/d{0}d{1}.csv".format(i, j), index_col=0, encoding="utf-8")
+            dynamic_feature = dynamic_set.as_matrix()
+            dynamic_features.append(dynamic_feature)
+
+        label_set = pd.read_csv('resources/treatment_5_fold/7Day/m{0}.csv'.format(i), index_col=0, encoding='utf-8')
+        label = label_set.as_matrix()
+
+        for k in label:
+            if k == ['None']:
+                k = [1, 0, 0, 0]
+            elif k == ['Ischemia']:
+                k = [0, 1, 0, 0]
+            elif k == ['Bleeding']:
+                k = [0, 0, 1, 0]
+            else:
+                k = [0, 0, 0, 1]
+            labels.append(k)
+    labels = np.array(labels)
+    static_features = np.array(static_features).reshape([-1, 232])
+    dynamic_features = np.array(dynamic_features).reshape((7, -1, 2194)).transpose([1, 0, 2])
+    return DataSet(static_features, dynamic_features, labels)
+
+
+def read_data_lu():
     static_set = pd.read_csv("resources/static_features.csv", encoding='gbk')
     static_feature = static_set.iloc[:, 2:].as_matrix()
     patient_id_list = static_set.iloc[:, 0]  # 切片
@@ -103,3 +136,7 @@ def read_data():
         labels.append(label)
     labels = np.array(labels)
     return DataSet(static_feature, dynamic_feature, labels)
+
+
+if __name__ == "__main__":
+    read_data_sun()
