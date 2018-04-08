@@ -27,8 +27,9 @@ docs/build/
 # model save path
 model_save/
 
-# jupyter test file
-jupyter/
+# jupyter file
+*.ipynb
+.ipynb_checkpoints/
 
 # result file
 result/

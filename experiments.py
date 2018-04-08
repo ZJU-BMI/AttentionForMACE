@@ -5,7 +5,7 @@ from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, recall_scor
 from sklearn.model_selection import StratifiedShuffleSplit
 import tensorflow as tf
 
-from data import read_data, DataSet
+from data import read_data_lu, read_data_sun, DataSet
 from models import BasicLSTMModel, BidirectionalLSTMModel
 
 
@@ -20,6 +20,7 @@ class ExperimentSetup(object):
     learning_rate = 0.0001
     epochs = 1000
     output_n_epochs = 20
+    data_source = "lu"
 
 
 def evaluate(tol_label, tol_pred, result_file='resources/save/evaluation_result.csv'):
@@ -97,7 +98,10 @@ def model_experiments(model, data_set, result_file):
 
 
 def basic_lstm_model_experiments(result_file):
-    data_set = read_data()
+    if ExperimentSetup.data_source == 'lu':
+        data_set = read_data_lu()
+    else:
+        data_set = read_data_sun()
     dynamic_feature = data_set.dynamic_feature
     labels = data_set.labels
 
@@ -117,7 +121,10 @@ def basic_lstm_model_experiments(result_file):
 
 
 def bidirectional_lstm_model_experiments(result_file):
-    data_set = read_data()
+    if ExperimentSetup.data_source == 'lu':
+        data_set = read_data_lu()
+    else:
+        data_set = read_data_sun()
     dynamic_feature = data_set.dynamic_feature
     labels = data_set.labels
 
