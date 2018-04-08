@@ -83,6 +83,7 @@ class UIInterface(object):
                command=self._confirm_click).place(x=120, y=300, anchor=W)
 
     def _confirm_click(self):
+        self.acc_text.delete('1.0', END)
         self.auc_text.delete('1.0', END)
         self.precision_text.delete('1.0', END)
         self.recall_text.delete('1.0', END)
