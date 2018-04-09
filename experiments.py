@@ -143,4 +143,4 @@ def bidirectional_lstm_model_experiments(result_file):
 
 
 if __name__ == '__main__':
-    basic_lstm_model_experiments('resources/save/basic_lstm.csv')
+    bidirectional_lstm_model_experiments('resources/save/basic_lstm.csv')

@@ -28,22 +28,15 @@ class BasicLSTMModel(object):
         self._name = name
         self._batch_size = batch_size
         self._output_n_epoch = output_n_epoch
+        self._lstm_size = lstm_size
 
         with tf.variable_scope(self._name):
             self._x = tf.placeholder(tf.float32, [None, time_steps, num_features], 'input')
             self._y = tf.placeholder(tf.float32, [None, n_output], 'label')
 
-            lstm = tf.contrib.rnn.BasicLSTMCell(lstm_size)  #??????
-            init_state = lstm.zero_state(tf.shape(self._x)[0], tf.float32)#全零向量
+            self._hidden_layer()
 
-            mask, length = self._length()  # 每个病人的实际天数
-            self._hidden, _ = tf.nn.dynamic_rnn(lstm,
-                                                self._x,
-                                                sequence_length=length,
-                                                initial_state=init_state)
-            self._hidden_sum = tf.reduce_sum(self._hidden, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
-                                                                        (1, lstm_size))
-            self._output = tf.contrib.layers.fully_connected(self._hidden_sum, n_output,
+            self._output = tf.contrib.layers.fully_connected(self._hidden_rep, n_output,
                                                              activation_fn=tf.identity)  # 输出层
             self._pred = tf.nn.softmax(self._output, name="pred")
 
@@ -51,6 +44,18 @@ class BasicLSTMModel(object):
             self._train_op = optimizer.minimize(self._loss)
 
             self._sess = tf.Session()  # 会话
+
+    def _hidden_layer(self):
+        lstm = tf.contrib.rnn.BasicLSTMCell(self._lstm_size)  # ??????
+        init_state = lstm.zero_state(tf.shape(self._x)[0], tf.float32)  # 全零向量
+
+        mask, length = self._length()  # 每个病人的实际天数
+        self._hidden, _ = tf.nn.dynamic_rnn(lstm,
+                                            self._x,
+                                            sequence_length=length,
+                                            initial_state=init_state)
+        self._hidden_rep = tf.reduce_sum(self._hidden, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
+                                                                    (1, self._lstm_size))
 
     def _length(self):
         mask = tf.sign(tf.reduce_max(tf.abs(self._x), 2))
@@ -79,37 +84,25 @@ class BasicLSTMModel(object):
 
 
 class BidirectionalLSTMModel(BasicLSTMModel):
-    def __int__(self, num_features, time_steps, lstm_size, batch_size, n_output, epochs=1000,
-                output_n_epoch=10, optimizer=tf.train.AdamOptimizer(), name='bidirectional LSTM model'):
-        self._epochs = epochs
-        self._name = name
-        self._batch_size = batch_size
-        self._output_n_epoch = output_n_epoch
+    def __init__(self, num_features, time_steps, lstm_size, batch_size, n_output, epochs=1000, output_n_epoch=10,
+                 optimizer=tf.train.AdamOptimizer(), name='bidirectional LSTM model'):
+        super().__init__(num_features, time_steps, batch_size, lstm_size, n_output, epochs, output_n_epoch, optimizer,
+                         name)
 
-        with tf.variable_scope(self._name):
-            self._x = tf.placeholder(tf.float32, [None, time_steps, num_features])
-            self._y = tf.placeholder(tf.float32, [None, n_output], 'label')
+    def _hidden_layer(self):
+        self._lstm = {}
+        self._init_state = {}
+        for direction in ['forward', 'backward']:
+            self._lstm[direction] = tf.contrib.rnn.BasicLSTMCell(self._lstm_size)
+            self._init_state[direction] = self._lstm[direction].zero_state(tf.shape(self._x)[0], tf.float32)
 
-            self._lstm = {}
-            self._init_state = {}
-            for direction in ['forward', 'backward']:
-                self._lstm[direction] = tf.contrib.rnn.BasicLSTMCell(lstm_size)
-                self._init_state[direction] = self._lstm[direction].zero_state(tf.shape(self._x)[0], tf.float32)
-
-            mask, length = self._length()
-            self._hidden, _ = tf.nn.bidirectional_dynamic_rnn(self._lstm['forward'],
-                                                              self._lstm['backward'],
-                                                              self._x,
-                                                              sequence_length=length,
-                                                              initial_state_fw=self._init_state['forward'],
-                                                              initial_state_bw=self._init_state['backward'])
-            self._hidden_concat = tf.concat(self._hidden, axis=2)  # 沿着num_features的方向进行拼接
-            self._hidden_sum = tf.reduce_sum(self._hidden_concat) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
-                                                                            (1, lstm_size * 2))
-            self._output = tf.contrib.layers.fuuly_connected(self._hidden_sum, n_output, activation_fn=tf.identity)
-            self._pred = tf.nn.softmax(self._output, name="pred")
-
-            self._loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(self._y, self._output), name='loss')
-            self._train_op = optimizer.minimize(self._loss)
-
-            self._sess = tf.Session()
+        mask, length = self._length()
+        self._hidden, _ = tf.nn.bidirectional_dynamic_rnn(self._lstm['forward'],
+                                                          self._lstm['backward'],
+                                                          self._x,
+                                                          sequence_length=length,
+                                                          initial_state_fw=self._init_state['forward'],
+                                                          initial_state_bw=self._init_state['backward'])
+        self._hidden_concat = tf.concat(self._hidden, axis=2)  # 沿着num_features的方向进行拼接
+        self._hidden_rep = tf.reduce_sum(self._hidden_concat) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
+                                                                        (1, self._lstm_size * 2))
