@@ -1,12 +1,12 @@
 import csv
 
 import numpy as np
-from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, recall_score, precision_score, roc_curve #roc计算曲线
-from sklearn.model_selection import StratifiedShuffleSplit #创建随机数并打乱
+from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, recall_score, precision_score, roc_curve  # roc计算曲线
+from sklearn.model_selection import StratifiedShuffleSplit  # 创建随机数并打乱
 import tensorflow as tf
 
 from data import read_data_lu, read_data_sun, DataSet
-from models import BasicLSTMModel, BidirectionalLSTMModel
+from models import BasicLSTMModel, BidirectionalLSTMModel, LSTMWithStaticFeature
 
 
 class ExperimentSetup(object):
@@ -68,7 +68,7 @@ def model_experiments(model, data_set, result_file):
     split = StratifiedShuffleSplit(ExperimentSetup.kfold, ExperimentSetup.test_size, ExperimentSetup.train_size) \
         .split(static_feature, labels)
 
-    n_output = labels.shape[1] #classes
+    n_output = labels.shape[1]  # classes
 
     tol_pred = np.zeros(shape=(0, n_output))
     tol_label = np.zeros(shape=(0, n_output), dtype=np.int32)
@@ -89,12 +89,6 @@ def model_experiments(model, data_set, result_file):
         tol_label = np.vstack((tol_label, test_y))
 
     return evaluate(tol_label, tol_pred, result_file)
-    # acc, auc, precision, recall, f_score = evaluate(tol_label, tol_pred, result_file)
-    # print("accuracy: ", acc)
-    # print("auc: ", auc)
-    # print("precision: ", precision)
-    # print("recall: ", recall)
-    # print("f_score: ", f_score)
 
 
 def basic_lstm_model_experiments(result_file):
@@ -111,9 +105,9 @@ def basic_lstm_model_experiments(result_file):
 
     model = BasicLSTMModel(num_features,
                            time_steps,
-                           ExperimentSetup.batch_size,
                            ExperimentSetup.lstm_size,
                            n_output,
+                           batch_size=ExperimentSetup.batch_size,
                            optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
                            epochs=ExperimentSetup.epochs,
                            output_n_epoch=ExperimentSetup.output_n_epochs)
@@ -134,13 +128,38 @@ def bidirectional_lstm_model_experiments(result_file):
 
     model = BidirectionalLSTMModel(num_features,
                                    time_steps,
-                                   ExperimentSetup.batch_size,
                                    ExperimentSetup.lstm_size,
                                    n_output,
+                                   batch_size=ExperimentSetup.batch_size,
                                    epochs=ExperimentSetup.epochs,
                                    output_n_epoch=ExperimentSetup.output_n_epochs)
     return model_experiments(model, data_set, result_file)
 
 
+def lstm_with_static_feature_model_experiments(result_file):
+    if ExperimentSetup.data_source == 'lu':
+        data_set = read_data_lu()
+    else:
+        data_set = read_data_sun()
+    static_feature = data_set.static_feature
+    dynamic_feature = data_set.dynamic_feature
+    labels = data_set.labels
+
+    static_n_features = static_feature.shape[1]
+    dynamic_n_features = dynamic_feature.shape[2]
+    time_steps = dynamic_feature.shape[1]
+    n_output = labels.shape[1]
+
+    model = LSTMWithStaticFeature(static_n_features,
+                                  dynamic_n_features,
+                                  time_steps,
+                                  ExperimentSetup.lstm_size,
+                                  n_output,
+                                  batch_size=ExperimentSetup.batch_size,
+                                  epochs=ExperimentSetup.epochs,
+                                  output_n_epochs=ExperimentSetup.output_n_epochs)
+    # return model_experiments(model, data_set, result_file)
+
+
 if __name__ == '__main__':
-    bidirectional_lstm_model_experiments('resources/save/basic_lstm.csv')
+    lstm_with_static_feature_model_experiments('resources/save/basic_lstm.csv')
