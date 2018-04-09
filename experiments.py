@@ -158,8 +158,10 @@ def lstm_with_static_feature_model_experiments(result_file):
                                   batch_size=ExperimentSetup.batch_size,
                                   epochs=ExperimentSetup.epochs,
                                   output_n_epochs=ExperimentSetup.output_n_epochs)
-    # return model_experiments(model, data_set, result_file)
+    return model_experiments(model, data_set, result_file)
 
 
 if __name__ == '__main__':
-    lstm_with_static_feature_model_experiments('resources/save/basic_lstm.csv')
+    # basic_lstm_model_experiments('resources/save/basic_lstm.csv')
+    lstm_with_static_feature_model_experiments("resources/save/lstm_with_static.csv")
+    # bidirectional_lstm_model_experiments('resources/save/bidirectional_lstm.csv')

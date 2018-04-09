@@ -85,7 +85,7 @@ class BasicLSTMModel(object):
 
 class BidirectionalLSTMModel(BasicLSTMModel):
     def __init__(self, num_features, time_steps, lstm_size, n_output, batch_size=64, epochs=1000, output_n_epoch=10,
-                 optimizer=tf.train.AdamOptimizer(), name='bidirectional LSTM model'):
+                 optimizer=tf.train.AdamOptimizer(), name='bidirectionalLSTMModel'):
         super().__init__(num_features, time_steps, lstm_size, n_output, batch_size, epochs, output_n_epoch, optimizer,
                          name)
 
@@ -104,7 +104,7 @@ class BidirectionalLSTMModel(BasicLSTMModel):
                                                           initial_state_fw=self._init_state['forward'],
                                                           initial_state_bw=self._init_state['backward'])
         self._hidden_concat = tf.concat(self._hidden, axis=2)  # 沿着num_features的方向进行拼接
-        self._hidden_rep = tf.reduce_sum(self._hidden_concat) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
+        self._hidden_rep = tf.reduce_sum(self._hidden_concat, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
                                                                         (1, self._lstm_size * 2))
 
 
@@ -139,7 +139,7 @@ class LSTMWithStaticFeature(object):
                                                               initial_state_fw=self._init_state['forward'],
                                                               initial_state_bw=self._init_state['backward'])
             self._hidden_concat = tf.concat(self._hidden, axis=2)
-            self._hidden_sum = tf.reduce_sum(self._hidden_concat) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
+            self._hidden_sum = tf.reduce_sum(self._hidden_concat, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
                                                                             (1, lstm_size * 2))
             self._hidden_rep = tf.concat((self._hidden_sum, self._static_input), axis=1)
 
