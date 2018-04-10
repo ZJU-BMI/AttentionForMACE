@@ -79,8 +79,8 @@ class BasicLSTMModel(object):
                                                              self._y: data_set.labels})
                 print("loss of epoch {} is {}".format(data_set.epoch_completed, loss))
 
-    def predict(self, dynamic_feature):
-        return self._sess.run(self._pred, feed_dict={self._x: dynamic_feature})
+    def predict(self, test_set):
+        return self._sess.run(self._pred, feed_dict={self._x: test_set.dynamic_feature})
 
 
 class BidirectionalLSTMModel(BasicLSTMModel):

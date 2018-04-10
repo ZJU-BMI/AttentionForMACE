@@ -81,10 +81,12 @@ def model_experiments(model, data_set, result_file):
 
         model.fit(train_set)
 
-        test_x = dynamic_feature[test_idx]
+        test_static = static_feature[test_idx]
+        test_dynamic = dynamic_feature[test_idx]
         test_y = labels[test_idx]
+        test_set = DataSet(test_static, test_dynamic, test_y)
 
-        y_score = model.predict(test_x)
+        y_score = model.predict(test_set)
         tol_pred = np.vstack((tol_pred, y_score))
         tol_label = np.vstack((tol_label, test_y))
 
