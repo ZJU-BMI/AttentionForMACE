@@ -8,6 +8,17 @@ def xavier_init(fan_in, fan_out, constant=1):  # 什么意思
     return tf.random_uniform((fan_in, fan_out), minval=low, maxval=high)  # 产生均匀分布随机数，为什么要产生随机分布数？
 
 
+def residual_block(inputs, num_output):
+    x = tf.contrib.layers.fully_connected(inputs, num_output, normalizer_fn=tf.contrib.layers.batch_norm)
+    x = tf.contrib.layers.fully_connected(x, num_output, normalizer_fn=tf.contrib.layers.batch_norm)
+
+    if tf.shape(inputs)[1] == num_output:
+        return x + inputs
+    else:
+        residual_weight = tf.Variable(xavier_init(tf.shape(inputs)[1], num_output), dtype=tf.float32)
+        return x + inputs @ residual_weight
+
+
 class BasicLSTMModel(object):
     def __init__(self, num_features, time_steps, lstm_size, n_output, batch_size=64, epochs=1000,
                  output_n_epoch=10, optimizer=tf.train.AdamOptimizer(), name='BasicLSTMModel'):
