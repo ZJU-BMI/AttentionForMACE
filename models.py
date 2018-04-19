@@ -180,13 +180,6 @@ class LSTMWithStaticFeature(object):
                                                      self._dynamic_input: data_set.dynamic_feature})
 
 
-def _variable_length_softmax(logits, length):
-    mask = tf.sequence_mask(length)
-    mask_value = tf.as_dtype(tf.float32).as_numpy_dtype(-np.inf) * tf.ones_like(logits)
-    mask_logits = tf.where(mask, logits, mask_value)
-    return tf.nn.softmax(mask_logits)
-
-
 class BiLSTMWithAttentionModel(object):
     def __init__(self, static_features, dynamic_features, time_steps, lstm_size, n_output, batch_size=64, epochs=1000,
                  output_n_epoch=10, optimizer=tf.train.AdamOptimizer(), name='BasicLSTMModel'):
@@ -235,17 +228,23 @@ class BiLSTMWithAttentionModel(object):
         expand_static_x = tf.tile(tf.expand_dims(self._static_x, 1), (1, self._time_steps, 1))
         concat_x = tf.concat((expand_static_x, self._dynamic_x), -1)
         # define the weight and bias to calculate attention weight
-        self._attention_weight = tf.Variable(tf.random_normal((self._static_features + self._static_features, 1),))
+        self._attention_weight = tf.Variable(tf.random_normal((self._static_features + self._dynamic_features, 1),))
         self._attention_b = tf.Variable(tf.zeros(1), tf.float32)
         concat_x = tf.reshape(concat_x, (-1, self._static_features + self._dynamic_features))
         weight = concat_x @ self._attention_weight + self._attention_b
         weight = tf.reshape(weight, (-1, self._time_steps))   # batch_size * time_steps
         # variable length softmax
-        attention_weight = _variable_length_softmax(weight, length)
+        attention_weight = self._variable_length_softmax(weight, length)
         # todo: weighted average the hidden representation, shape of self._hidden is [batch_size, time_steps, lstm_size]
         attention_weight = tf.tile(tf.expand_dims(attention_weight, 2), (1, 1, 2 * self._lstm_size))
 
-        self._hidden_rep = tf.reduce_sum(attention_weight * self._hidden_concat, 1)
+        self._hidden_rep = tf.reduce_sum(attention_weight * self._hidden_concat, 1)  #最终隐藏层的表达
+
+    def _variable_length_softmax(self, logits, length):
+        mask = tf.sequence_mask(length, self._time_steps)
+        mask_value = tf.as_dtype(tf.float32).as_numpy_dtype(-np.inf) * tf.ones_like(logits)
+        mask_logits = tf.where(mask, logits, mask_value)
+        return tf.nn.softmax(mask_logits)
 
     def _length(self):
         mask = tf.sign(tf.reduce_max(tf.abs(self._dynamic_x), 2))

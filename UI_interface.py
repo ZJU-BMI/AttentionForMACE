@@ -1,7 +1,6 @@
 from tkinter import *
 from tkinter.filedialog import askopenfilename
 
-
 import experiments
 import _thread
 import sys
@@ -21,7 +20,7 @@ class UIInterface(object):
         self._place_some_text()
         self._place_some_label()
         self._place_some_button()
-        
+
         self._change_stdout()
 
     def _model_select_radio_button(self):
@@ -120,8 +119,9 @@ class UIInterface(object):
         elif value == 2:
             print('waiting....')
             _thread.start_new_thread(self._call_bi_lstm_experiment, (result_file,))
-        else:
-            pass
+        elif value == 3:
+            print("waiting....")
+            _thread.start_new_thread(self._call_attention_model_experiment, (result_file,))
 
     def _call_basic_lstm_experiment(self, result_file):
         acc, auc, precision, recall, f_score = experiments.basic_lstm_model_experiments(
@@ -135,6 +135,14 @@ class UIInterface(object):
     def _call_bi_lstm_experiment(self, result_file):
         acc, auc, precision, recall, f_score = experiments.bidirectional_lstm_model_experiments(
             result_file)
+        self.acc_text.insert(END, acc)
+        self.auc_text.insert(END, auc)
+        self.precision_text.insert(END, precision)
+        self.recall_text.insert(END, recall)
+        self.f_score_text.insert(END, f_score)
+
+    def _call_attention_model_experiment(self, result_file):
+        acc, auc, precision, recall, f_score = experiments.bi_lstm_attention_model_experiments(result_file)
         self.acc_text.insert(END, acc)
         self.auc_text.insert(END, auc)
         self.precision_text.insert(END, precision)

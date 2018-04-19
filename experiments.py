@@ -6,7 +6,7 @@ from sklearn.model_selection import StratifiedShuffleSplit  # 创建随机数并
 import tensorflow as tf
 
 from data import read_data_lu, read_data_sun, DataSet
-from models import BasicLSTMModel, BidirectionalLSTMModel, LSTMWithStaticFeature
+from models import BasicLSTMModel, BidirectionalLSTMModel, LSTMWithStaticFeature, BiLSTMWithAttentionModel
 
 
 class ExperimentSetup(object):
@@ -135,6 +135,31 @@ def bidirectional_lstm_model_experiments(result_file):
                                    batch_size=ExperimentSetup.batch_size,
                                    epochs=ExperimentSetup.epochs,
                                    output_n_epoch=ExperimentSetup.output_n_epochs)
+    return model_experiments(model, data_set, result_file)
+
+
+def bi_lstm_attention_model_experiments(result_file):
+    if ExperimentSetup.data_source == 'lu':
+        data_set = read_data_lu()
+    else:
+        data_set = read_data_sun()
+    static_feature = data_set.static_feature
+    dynamic_feature = data_set.dynamic_feature
+    labels = data_set.labels
+
+    static_n_features = static_feature.shape[1]
+    dynamic_n_features = dynamic_feature.shape[2]
+    time_steps = dynamic_feature.shape[1]
+    n_output = labels.shape[1]
+
+    model = BiLSTMWithAttentionModel(static_n_features,
+                                     dynamic_n_features,
+                                     time_steps,
+                                     ExperimentSetup.lstm_size,
+                                     n_output,
+                                     batch_size=ExperimentSetup.batch_size,
+                                     epochs=ExperimentSetup.epochs,
+                                     output_n_epoch=ExperimentSetup.output_n_epochs)
     return model_experiments(model, data_set, result_file)
 
 
