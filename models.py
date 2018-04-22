@@ -13,7 +13,7 @@ def residual_block(inputs, num_output):
     x = tf.contrib.layers.fully_connected(x, num_output, normalizer_fn=tf.contrib.layers.batch_norm)
 
     origin_dim = inputs.get_shape().as_list()[1]
-    if origin_dim == num_output:
+    if origin_dim == num_output:  # 输出的个数
         return x + inputs
     else:
         residual_weight = tf.Variable(xavier_init(origin_dim, num_output), dtype=tf.float32)
@@ -288,3 +288,50 @@ class BiLSTMWithAttentionModel(object):
     def predict(self, data_set):
         return self._sess.run(self._pred, feed_dict={self._static_x: data_set.static_feature,
                                                      self._dynamic_x: data_set.dynamic_feature})
+
+
+class ResNet(object):
+    def __init__(self, static_features, n_output, batch_size=64, epochs=1000, output_n_epochs=10,
+                 optimizer=tf.train.AdamOptimizer(), name="ResNet"):
+        self._static_features = static_features
+        self._epochs = epochs
+        self._name = name
+        self._batch_size = batch_size
+        self._output_n_epochs = output_n_epochs
+
+        with tf.variable_scope(self._name):
+            self._static_x = tf.placeholder(tf.float32, [None, self._static_features], 'static_input')
+            self._y = tf.placeholder(tf.float32, [None, n_output], 'label')
+
+            self._out = residual_block(self._static_x, 200)
+
+            self._output = tf.contrib.layers.fully_connected(self._out, n_output,
+                                                             activation_fn=tf.identity)
+            self._pred = tf.nn.softmax(self._output, name="pred")
+
+            self._loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(self._y, self._output), name='loss')
+            self._train_op = optimizer.minimize(self._loss)
+
+            self._sess = tf.Session()
+
+    def fit(self, data_set):
+        self._sess.run(tf.global_variables_initializer())
+        data_set.epoch_completed =0
+
+        logged = set()
+        while data_set.epoch_completed < self._epochs:
+            static_feature, _, labels = data_set.next_batch(self._batch_size)
+            self._sess.run(self._train_op, feed_dict={self._static_x: static_feature,
+                                                      self._y: labels})
+
+            if data_set.epoch_completed % self._output_n_epochs == 0 and data_set.epoch_completed not in logged:
+                logged.add(data_set.epoch_completed)
+                loss = self._sess.run(self._loss, feed_dict={self._static_x: data_set.static_feature,
+                                                             self._y: data_set.labels})
+                print("loss of epoch {} is {}".format(data_set.epoch_completed, loss))
+
+    def predict(self, test_set):
+        return self._sess.run(self._pred, feed_dict={self._static_x: test_set.static_feature})
+
+
+

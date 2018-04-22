@@ -27,8 +27,9 @@ class UIInterface(object):
         Radiobutton(self.root, text="LSTM", variable=self._model_selected, value=1).place(x=20, y=20, anchor=W)
         Radiobutton(self.root, text="Bi-LSTM", variable=self._model_selected, value=2).place(x=20, y=40, anchor=W)
         Radiobutton(self.root, text="A-LSTM", variable=self._model_selected, value=3).place(x=20, y=60, anchor=W)
-        Radiobutton(self.root, text='Lu', variable=self._input_file_select, value=1).place(x=20, y=90, anchor=W)
-        Radiobutton(self.root, text='Sun', variable=self._input_file_select, value=2).place(x=20, y=110, anchor=W)
+        Radiobutton(self.root, text="ResNet", variable=self._model_selected, value=4).place(x=20, y=80, anchor=W)
+        Radiobutton(self.root, text='Lu', variable=self._input_file_select, value=1).place(x=20, y=100, anchor=W)
+        Radiobutton(self.root, text='Sun', variable=self._input_file_select, value=2).place(x=20, y=120, anchor=W)
 
     def _place_some_label(self):
         Label(self.root, textvariable=self.out_file_str, justify=LEFT).place(x=20, y=270, anchor=W)
@@ -122,6 +123,9 @@ class UIInterface(object):
         elif value == 3:
             print("waiting....")
             _thread.start_new_thread(self._call_attention_model_experiment, (result_file,))
+        elif value == 4:
+            print("waiting...")
+            _thread.start_new_thread(self._call_res_model_experiment, (result_file,))
 
     def _call_basic_lstm_experiment(self, result_file):
         acc, auc, precision, recall, f_score = experiments.basic_lstm_model_experiments(
@@ -143,6 +147,14 @@ class UIInterface(object):
 
     def _call_attention_model_experiment(self, result_file):
         acc, auc, precision, recall, f_score = experiments.bi_lstm_attention_model_experiments(result_file)
+        self.acc_text.insert(END, acc)
+        self.auc_text.insert(END, auc)
+        self.precision_text.insert(END, precision)
+        self.recall_text.insert(END, recall)
+        self.f_score_text.insert(END, f_score)
+
+    def _call_res_model_experiment(self, result_file):
+        acc, auc, precision, recall, f_score = experiments.resnet_model_experiments(result_file)
         self.acc_text.insert(END, acc)
         self.auc_text.insert(END, auc)
         self.precision_text.insert(END, precision)
