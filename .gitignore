@@ -33,3 +33,6 @@ model_save/
 
 # result file
 result/
+
+# zip file
+*.zip
