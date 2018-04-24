@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import Imputer, MinMaxScaler
 
 
 class DataSet(object):
@@ -71,6 +72,26 @@ class DataSet(object):
         self._epoch_completed = value
 
 
+class MyScaler(object):
+
+    def __init__(self):
+        self.imputer = Imputer()  # 填充
+        self.scaler = MinMaxScaler()  # 找出最大值和最小值，进行归一化
+
+    def fit(self, x):
+        self.imputer.fit(x)
+        new_x = self.imputer.transform(x)
+        self.scaler.fit(new_x)
+        return self
+
+    def transform(self, x):
+        new_x = self.imputer.transform(x)
+        return self.scaler.transform(new_x)
+
+    def fit_trans(self, x):
+        return self.fit(x).transform(x)
+
+
 def read_data_sun():
     static_features = []
     dynamic_features = []
@@ -105,9 +126,13 @@ def read_data_sun():
 
 
 def read_data_lu():
-    static_set = pd.read_csv("resources/static_features.csv", encoding='gbk')
-    static_feature = static_set.iloc[:, 2:].as_matrix()
-    patient_id_list = static_set.iloc[:, 0]  # 切片
+    id_set = pd.read_csv("resources/static_features_sorted.csv", encoding='gbk')
+    patient_id_list = id_set.iloc[:, 0]  # 切片
+    static_set = pd.read_csv("resources/data_processed.csv", encoding='gbk')
+    static_feature = static_set.iloc[:, 12:].as_matrix()
+
+    scaler = MyScaler()
+    static_feature = scaler.fit_trans(static_feature)
 
     dynamic_set = pd.read_csv("resources/treatment_truncated.csv", encoding="utf-8")
     max_length = 0
@@ -118,7 +143,8 @@ def read_data_lu():
             max_length = one_dynamic_feature.shape[0]
         dynamic_feature.append(one_dynamic_feature)
 
-    dynamic_feature = list(map(lambda x: np.pad(x, ((0, max_length-x.shape[0]), (0, 0)), 'constant', constant_values=0), dynamic_feature))
+    dynamic_feature = list(map(lambda x: np.pad(x, ((0, max_length-x.shape[0]), (0, 0)), 'constant', constant_values=0),
+                               dynamic_feature))
     dynamic_feature = np.stack(dynamic_feature)
 
     label_set = pd.read_csv('resources/dataset_addmission.csv', encoding='gbk')

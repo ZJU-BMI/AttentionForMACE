@@ -11,6 +11,7 @@ def xavier_init(fan_in, fan_out, constant=1):  # 什么意思
 def residual_block(inputs, num_output):
     x = tf.contrib.layers.fully_connected(inputs, num_output, normalizer_fn=tf.contrib.layers.batch_norm)
     x = tf.contrib.layers.fully_connected(x, num_output, normalizer_fn=tf.contrib.layers.batch_norm)
+    x = tf.contrib.layers.fully_connected(x, num_output, normalizer_fn=tf.contrib.layers.batch_norm)
 
     origin_dim = inputs.get_shape().as_list()[1]
     if origin_dim == num_output:  # 输出的个数
@@ -316,7 +317,7 @@ class ResNet(object):
 
     def fit(self, data_set):
         self._sess.run(tf.global_variables_initializer())
-        data_set.epoch_completed =0
+        data_set.epoch_completed = 0
 
         logged = set()
         while data_set.epoch_completed < self._epochs:
@@ -326,8 +327,8 @@ class ResNet(object):
 
             if data_set.epoch_completed % self._output_n_epochs == 0 and data_set.epoch_completed not in logged:
                 logged.add(data_set.epoch_completed)
-                loss = self._sess.run(self._loss, feed_dict={self._static_x: data_set.static_feature,
-                                                             self._y: data_set.labels})
+                pred, loss = self._sess.run((self._pred, self._loss), feed_dict={self._static_x: data_set.static_feature,
+                                                                                 self._y: data_set.labels})
                 print("loss of epoch {} is {}".format(data_set.epoch_completed, loss))
 
     def predict(self, test_set):
