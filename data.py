@@ -108,16 +108,20 @@ def read_data_sun():
 
         label_set = pd.read_csv('resources/treatment_5_fold/7Day/m{0}.csv'.format(i), index_col=0, encoding='utf-8')
         label = label_set.as_matrix()
-
+        # for k in label:
+        #     if k == ['None']:
+        #         k = [1, 0, 0, 0]
+        #     elif k == ['Ischemia']:
+        #         k = [0, 1, 0, 0]
+        #     elif k == ['Bleeding']:
+        #         k = [0, 0, 1, 0]
+        #     else:
+        #         k = [0, 0, 0, 1]
         for k in label:
             if k == ['None']:
-                k = [1, 0, 0, 0]
-            elif k == ['Ischemia']:
-                k = [0, 1, 0, 0]
-            elif k == ['Bleeding']:
-                k = [0, 0, 1, 0]
+                k = [1, 0]
             else:
-                k = [0, 0, 0, 1]
+                k = [0, 1]
             labels.append(k)
     labels = np.array(labels)
     static_features = np.array(static_features).reshape([-1, 232])
