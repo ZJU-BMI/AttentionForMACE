@@ -151,14 +151,18 @@ def read_data_lu():
     labels = []
     for patient_id in patient_id_list:
         label = label_set.loc[label_set['TraceNo.'] == patient_id].iloc[:, 9:11].as_matrix()
-        if np.all(label == [[0, 0]]):  # 无缺血，出血
-            label = [1, 0, 0, 0]
-        elif np.all(label == [[1, 0]]):  # 缺血
-            label = [0, 1, 0, 0]
-        elif np.all(label == [[0, 1]]):  # 出血
-            label = [0, 0, 1, 0]
+        # if np.all(label == [[0, 0]]):  # 无缺血，出血
+        #     label = [1, 0, 0, 0]
+        # elif np.all(label == [[1, 0]]):  # 缺血
+        #     label = [0, 1, 0, 0]
+        # elif np.all(label == [[0, 1]]):  # 出血
+        #     label = [0, 0, 1, 0]
+        # else:
+        #     label = [0, 0, 0, 1]  # 缺血，出血
+        if np.all(label == [[0, 0]]):
+            label = [1, 0]
         else:
-            label = [0, 0, 0, 1]  # 缺血，出血
+            label = [0, 1]
         labels.append(label)
     labels = np.array(labels)
     return DataSet(static_feature, dynamic_feature, labels)

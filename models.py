@@ -305,6 +305,7 @@ class ResNet(object):
 
             self._out = residual_block(self._static_x, 200)
             self._out = residual_block(self._out, 200)
+            self._out = residual_block(self._out, 200)
 
             self._output = tf.contrib.layers.fully_connected(self._out, n_output,
                                                              activation_fn=tf.identity)
