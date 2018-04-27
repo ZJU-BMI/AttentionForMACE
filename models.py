@@ -9,8 +9,8 @@ def xavier_init(fan_in, fan_out, constant=1):  # 什么意思
 
 
 def residual_block(inputs, num_output):
-    x = tf.contrib.layers.fully_connected(inputs, num_output, normalizer_fn=tf.contrib.layers.batch_norm)
-    x = tf.contrib.layers.fully_connected(x, num_output, normalizer_fn=tf.contrib.layers.batch_norm)
+    x = tf.contrib.layers.fully_connected(inputs, num_output, activation_fn=tf.nn.tanh, normalizer_fn=tf.contrib.layers.batch_norm)
+    x = tf.contrib.layers.fully_connected(x, num_output, activation_fn=tf.nn.tanh, normalizer_fn=tf.contrib.layers.batch_norm)
 
     origin_dim = inputs.get_shape().as_list()[1]
     if origin_dim == num_output:  # 输出的个数
@@ -304,6 +304,8 @@ class ResNet(object):
             self._y = tf.placeholder(tf.float32, [None, n_output], 'label')
 
             self._out = residual_block(self._static_x, 200)
+            self._out = residual_block(self._out, 200)
+            self._out = residual_block(self._out, 200)
             self._out = residual_block(self._out, 200)
 
             self._output = tf.contrib.layers.fully_connected(self._out, n_output,
