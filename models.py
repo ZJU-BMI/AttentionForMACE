@@ -8,9 +8,11 @@ def xavier_init(fan_in, fan_out, constant=1):  # 什么意思
     return tf.random_uniform((fan_in, fan_out), minval=low, maxval=high)  # 产生均匀分布随机数，为什么要产生随机分布数？
 
 
-def residual_block(inputs, num_output):
-    x = tf.contrib.layers.fully_connected(inputs, num_output, activation_fn=tf.nn.tanh, normalizer_fn=tf.contrib.layers.batch_norm)
-    x = tf.contrib.layers.fully_connected(x, num_output, activation_fn=tf.nn.tanh, normalizer_fn=tf.contrib.layers.batch_norm)
+def residual_block(inputs, num_output, normalizer_params):
+    x = tf.contrib.layers.fully_connected(inputs, num_output, normalizer_fn=tf.contrib.layers.batch_norm,
+                                          normalizer_params=normalizer_params)
+    x = tf.contrib.layers.fully_connected(x, num_output, normalizer_fn=tf.contrib.layers.batch_norm,
+                                          normalizer_params=normalizer_params)
 
     origin_dim = inputs.get_shape().as_list()[1]
     if origin_dim == num_output:  # 输出的个数
@@ -87,8 +89,8 @@ class BasicLSTMModel(object):
 
             if data_set.epoch_completed % self._output_n_epoch == 0 and data_set.epoch_completed not in logged:
                 logged.add(data_set.epoch_completed)
-                loss = self._sess.run(self._loss, feed_dict={self._x: data_set.dynamic_feature,
-                                                             self._y: data_set.labels})
+                loss = self._sess.run(self._loss, feed_dict={self._x: dynamic_feature,
+                                                             self._y: labels})
                 print("loss of epoch {} is {}".format(data_set.epoch_completed, loss))
 
     def predict(self, test_set):
@@ -183,9 +185,9 @@ class LSTMWithStaticFeature(object):
 
             if data_set.epoch_completed % self._output_n_epochs == 0 and data_set.epoch_completed not in logged:
                 logged.add(data_set.epoch_completed)
-                loss = self._sess.run(self._loss, feed_dict={self._static_input: data_set.static_feature,
-                                                             self._dynamic_input: data_set.dynamic_feature,
-                                                             self._y: data_set.labels})
+                loss = self._sess.run(self._loss, feed_dict={self._static_input: static_feature,
+                                                             self._dynamic_input: dynamic_feature,
+                                                             self._y: labels})
                 print("loss of epochs {} is {}".format(data_set.epoch_completed, loss))
 
     def predict(self, data_set):
@@ -208,6 +210,7 @@ class BiLSTMWithAttentionModel(object):
         with tf.variable_scope(self._name):
             self._static_x = tf.placeholder(tf.float32, [None, self._static_features], 'static_input')
             self._dynamic_x = tf.placeholder(tf.float32, [None, time_steps, self._dynamic_features], 'dynamic_input')
+            self._is_train = tf.placeholder(tf.bool)
             self._y = tf.placeholder(tf.float32, [None, n_output], 'label')
 
             self._hidden_layer()
@@ -248,11 +251,11 @@ class BiLSTMWithAttentionModel(object):
         weight = tf.reshape(weight, (-1, self._time_steps))  # batch_size * time_steps
         # variable length softmax
         attention_weight = self._variable_length_softmax(weight, length)  # length是每个病人的实际天数
-        # todo: weighted average the hidden representation, shape of self._hidden is [batch_size, time_steps, lstm_size]
+        # weighted average the hidden representation, shape of self._hidden is [batch_size, time_steps, lstm_size]
         attention_weight = tf.tile(tf.expand_dims(attention_weight, 2), (1, 1, 2 * self._lstm_size))
 
         self._hidden_rep = tf.reduce_sum(attention_weight * self._hidden_concat, 1)  # 最终隐藏层的表达
-        self._residual_output = residual_block(self._static_x, 200)
+        self._residual_output = residual_block(self._static_x, 200, {'is_training': self._is_train})
         self._hidden_rep = tf.concat((self._hidden_rep, self._residual_output), 1)
 
     def _variable_length_softmax(self, logits, length):
@@ -276,18 +279,21 @@ class BiLSTMWithAttentionModel(object):
             static_feature, dynamic_feature, labels = data_set.next_batch(self._batch_size)
             self._sess.run(self._train_op, feed_dict={self._static_x: static_feature,
                                                       self._dynamic_x: dynamic_feature,
+                                                      self._is_train: True,
                                                       self._y: labels})
 
             if data_set.epoch_completed % self._output_n_epochs == 0 and data_set.epoch_completed not in logged:
                 logged.add(data_set.epoch_completed)
-                loss = self._sess.run(self._loss, feed_dict={self._static_x: data_set.static_feature,
-                                                             self._dynamic_x: data_set.dynamic_feature,
-                                                             self._y: data_set.labels})
+                loss = self._sess.run(self._loss, feed_dict={self._static_x: static_feature,
+                                                             self._dynamic_x: dynamic_feature,
+                                                             self._is_train: True,
+                                                             self._y: labels})
                 print("loss of epochs {} is {}".format(data_set.epoch_completed, loss))
 
     def predict(self, data_set):
         return self._sess.run(self._pred, feed_dict={self._static_x: data_set.static_feature,
-                                                     self._dynamic_x: data_set.dynamic_feature})
+                                                     self._dynamic_x: data_set.dynamic_feature,
+                                                     self._is_train: False})
 
 
 class ResNet(object):
@@ -301,12 +307,14 @@ class ResNet(object):
 
         with tf.variable_scope(self._name):
             self._static_x = tf.placeholder(tf.float32, [None, self._static_features], 'static_input')
+            self._is_training = tf.placeholder(tf.bool)
             self._y = tf.placeholder(tf.float32, [None, n_output], 'label')
 
-            self._out = residual_block(self._static_x, 200)
-            self._out = residual_block(self._out, 200)
-            self._out = residual_block(self._out, 200)
-            self._out = residual_block(self._out, 200)
+            normalizer_params = {'is_training': self._is_training}
+            self._out = residual_block(self._static_x, 200, normalizer_params)
+            self._out = residual_block(self._out, 200, normalizer_params)
+            self._out = residual_block(self._out, 200, normalizer_params)
+            self._out = residual_block(self._out, 200, normalizer_params)
 
             self._output = tf.contrib.layers.fully_connected(self._out, n_output,
                                                              activation_fn=tf.identity)
@@ -325,16 +333,16 @@ class ResNet(object):
         while data_set.epoch_completed < self._epochs:
             static_feature, _, labels = data_set.next_batch(self._batch_size)
             self._sess.run(self._train_op, feed_dict={self._static_x: static_feature,
+                                                      self._is_training: True,
                                                       self._y: labels})
 
             if data_set.epoch_completed % self._output_n_epochs == 0 and data_set.epoch_completed not in logged:
                 logged.add(data_set.epoch_completed)
-                pred, loss = self._sess.run((self._pred, self._loss), feed_dict={self._static_x: data_set.static_feature,
-                                                                                 self._y: data_set.labels})
+                pred, loss = self._sess.run((self._pred, self._loss), feed_dict={self._static_x: static_feature,
+                                                                                 self._is_training: True,
+                                                                                 self._y: labels})
                 print("loss of epoch {} is {}".format(data_set.epoch_completed, loss))
 
     def predict(self, test_set):
-        return self._sess.run(self._pred, feed_dict={self._static_x: test_set.static_feature})
-
-
-
+        return self._sess.run(self._pred, feed_dict={self._static_x: test_set.static_feature,
+                                                     self._is_training: False})
