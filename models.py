@@ -87,8 +87,8 @@ class BasicLSTMModel(object):
 
             if data_set.epoch_completed % self._output_n_epoch == 0 and data_set.epoch_completed not in logged:
                 logged.add(data_set.epoch_completed)
-                loss = self._sess.run(self._loss, feed_dict={self._x: data_set.dynamic_feature,
-                                                             self._y: data_set.labels})
+                loss = self._sess.run(self._loss, feed_dict={self._x: dynamic_feature,
+                                                             self._y: labels})
                 print("loss of epoch {} is {}".format(data_set.epoch_completed, loss))
 
     def predict(self, test_set):
@@ -183,9 +183,9 @@ class LSTMWithStaticFeature(object):
 
             if data_set.epoch_completed % self._output_n_epochs == 0 and data_set.epoch_completed not in logged:
                 logged.add(data_set.epoch_completed)
-                loss = self._sess.run(self._loss, feed_dict={self._static_input: data_set.static_feature,
-                                                             self._dynamic_input: data_set.dynamic_feature,
-                                                             self._y: data_set.labels})
+                loss = self._sess.run(self._loss, feed_dict={self._static_input: static_feature,
+                                                             self._dynamic_input: dynamic_feature,
+                                                             self._y: labels})
                 print("loss of epochs {} is {}".format(data_set.epoch_completed, loss))
 
     def predict(self, data_set):
@@ -280,9 +280,9 @@ class BiLSTMWithAttentionModel(object):
 
             if data_set.epoch_completed % self._output_n_epochs == 0 and data_set.epoch_completed not in logged:
                 logged.add(data_set.epoch_completed)
-                loss = self._sess.run(self._loss, feed_dict={self._static_x: data_set.static_feature,
-                                                             self._dynamic_x: data_set.dynamic_feature,
-                                                             self._y: data_set.labels})
+                loss = self._sess.run(self._loss, feed_dict={self._static_x: static_feature,
+                                                             self._dynamic_x: dynamic_feature,
+                                                             self._y: labels})
                 print("loss of epochs {} is {}".format(data_set.epoch_completed, loss))
 
     def predict(self, data_set):
@@ -304,6 +304,8 @@ class ResNet(object):
             self._y = tf.placeholder(tf.float32, [None, n_output], 'label')
 
             self._out = residual_block(self._static_x, 200)
+            self._out = residual_block(self._out, 200)
+            self._out = residual_block(self._out, 200)
             self._out = residual_block(self._out, 200)
 
             self._output = tf.contrib.layers.fully_connected(self._out, n_output,
@@ -327,8 +329,8 @@ class ResNet(object):
 
             if data_set.epoch_completed % self._output_n_epochs == 0 and data_set.epoch_completed not in logged:
                 logged.add(data_set.epoch_completed)
-                pred, loss = self._sess.run((self._pred, self._loss), feed_dict={self._static_x: data_set.static_feature,
-                                                                                 self._y: data_set.labels})
+                pred, loss = self._sess.run((self._pred, self._loss), feed_dict={self._static_x: static_feature,
+                                                                                 self._y: labels})
                 print("loss of epoch {} is {}".format(data_set.epoch_completed, loss))
 
     def predict(self, test_set):
