@@ -108,20 +108,20 @@ def read_data_sun():
 
         label_set = pd.read_csv('resources/treatment_5_fold/7Day/m{0}.csv'.format(i), index_col=0, encoding='utf-8')
         label = label_set.as_matrix()
-        # for k in label:
-        #     if k == ['None']:
-        #         k = [1, 0, 0, 0]
-        #     elif k == ['Ischemia']:
-        #         k = [0, 1, 0, 0]
-        #     elif k == ['Bleeding']:
-        #         k = [0, 0, 1, 0]
-        #     else:
-        #         k = [0, 0, 0, 1]
         for k in label:
             if k == ['None']:
-                k = [1, 0]
+                k = [1, 0, 0, 0]
+            elif k == ['Ischemia']:
+                k = [0, 1, 0, 0]
+            elif k == ['Bleeding']:
+                k = [0, 0, 1, 0]
             else:
-                k = [0, 1]
+                k = [0, 0, 0, 1]
+        # for k in label:
+        #     if k == ['None']:
+        #         k = [1, 0]
+        #     else:
+        #         k = [0, 1]
             labels.append(k)
     labels = np.array(labels)
     static_features = np.array(static_features).reshape([-1, 232])
@@ -155,18 +155,18 @@ def read_data_lu():
     labels = []
     for patient_id in patient_id_list:
         label = label_set.loc[label_set['TraceNo.'] == patient_id].iloc[:, 9:11].as_matrix()
-        # if np.all(label == [[0, 0]]):  # 无缺血，出血
-        #     label = [1, 0, 0, 0]
-        # elif np.all(label == [[1, 0]]):  # 缺血
-        #     label = [0, 1, 0, 0]
-        # elif np.all(label == [[0, 1]]):  # 出血
-        #     label = [0, 0, 1, 0]
-        # else:
-        #     label = [0, 0, 0, 1]  # 缺血，出血
-        if np.all(label == [[0, 0]]):
-            label = [1, 0]
+        if np.all(label == [[0, 0]]):  # 无缺血，出血
+            label = [1, 0, 0, 0]
+        elif np.all(label == [[1, 0]]):  # 缺血
+            label = [0, 1, 0, 0]
+        elif np.all(label == [[0, 1]]):  # 出血
+            label = [0, 0, 1, 0]
         else:
-            label = [0, 1]
+            label = [0, 0, 0, 1]  # 缺血，出血
+        # if np.all(label == [[0, 0]]):
+        #     label = [1, 0]
+        # else:
+        #     label = [0, 1]
         labels.append(label)
     labels = np.array(labels)
     return DataSet(static_feature, dynamic_feature, labels)
