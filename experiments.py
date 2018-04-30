@@ -17,7 +17,7 @@ class ExperimentSetup(object):
     random_state = 1
 
     lstm_size = 200
-    learning_rate = 0.0001
+    learning_rate = 0.001
     epochs = 1000
     output_n_epochs = 20
     data_source = "lu"
@@ -133,6 +133,7 @@ def bidirectional_lstm_model_experiments(result_file):
                                    ExperimentSetup.lstm_size,
                                    n_output,
                                    batch_size=ExperimentSetup.batch_size,
+                                   optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
                                    epochs=ExperimentSetup.epochs,
                                    output_n_epoch=ExperimentSetup.output_n_epochs)
     return model_experiments(model, data_set, result_file)
@@ -158,6 +159,7 @@ def bi_lstm_attention_model_experiments(result_file):
                                      ExperimentSetup.lstm_size,
                                      n_output,
                                      batch_size=ExperimentSetup.batch_size,
+                                     optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
                                      epochs=ExperimentSetup.epochs,
                                      output_n_epoch=ExperimentSetup.output_n_epochs)
     return model_experiments(model, data_set, result_file)
@@ -177,6 +179,7 @@ def resnet_model_experiments(result_file):
     model = ResNet(static_n_features,
                    n_output,
                    batch_size=ExperimentSetup.batch_size,
+                   optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
                    epochs=ExperimentSetup.epochs,
                    output_n_epochs=ExperimentSetup.output_n_epochs)
     return model_experiments(model, data_set, result_file)
@@ -202,6 +205,7 @@ def lstm_with_static_feature_model_experiments(result_file):
                                   ExperimentSetup.lstm_size,
                                   n_output,
                                   batch_size=ExperimentSetup.batch_size,
+                                  optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
                                   epochs=ExperimentSetup.epochs,
                                   output_n_epochs=ExperimentSetup.output_n_epochs)
     return model_experiments(model, data_set, result_file)
