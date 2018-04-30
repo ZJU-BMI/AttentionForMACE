@@ -196,8 +196,9 @@ class LSTMWithStaticFeature(object):
 
 
 class BiLSTMWithAttentionModel(object):
-    def __init__(self, static_features, dynamic_features, time_steps, lstm_size, n_output, batch_size=64, epochs=1000,
-                 output_n_epoch=10, optimizer=tf.train.AdamOptimizer(), name='BasicLSTMModel'):
+    def __init__(self, static_features, dynamic_features, time_steps, lstm_size, n_output, use_attention=True,
+                 use_resnet=True, batch_size=64, epochs=1000, output_n_epoch=10, optimizer=tf.train.AdamOptimizer(),
+                 name='BasicLSTMModel'):
         self._static_features = static_features
         self._dynamic_features = dynamic_features
         self._time_steps = time_steps
@@ -206,6 +207,9 @@ class BiLSTMWithAttentionModel(object):
         self._batch_size = batch_size
         self._output_n_epochs = output_n_epoch
         self._lstm_size = lstm_size
+
+        self._use_attention = use_attention
+        self._use_resnet = use_resnet
 
         with tf.variable_scope(self._name):
             self._static_x = tf.placeholder(tf.float32, [None, self._static_features], 'static_input')
@@ -240,23 +244,29 @@ class BiLSTMWithAttentionModel(object):
                                                           initial_state_bw=self._init_state['backward'])
         self._hidden_concat = tf.concat(self._hidden, axis=2)  # 沿着num_features的方向进行拼接
 
-        # expand static feature to concat with dynamic feature
-        expand_static_x = tf.tile(tf.expand_dims(self._static_x, 1), (1, self._time_steps, 1))
-        concat_x = tf.concat((expand_static_x, self._dynamic_x), -1)
-        # define the weight and bias to calculate attention weight
-        self._attention_weight = tf.Variable(tf.random_normal((self._static_features + self._dynamic_features, 1), ))
-        self._attention_b = tf.Variable(tf.zeros(1), tf.float32)
-        concat_x = tf.reshape(concat_x, (-1, self._static_features + self._dynamic_features))
-        weight = concat_x @ self._attention_weight + self._attention_b
-        weight = tf.reshape(weight, (-1, self._time_steps))  # batch_size * time_steps
-        # variable length softmax
-        attention_weight = self._variable_length_softmax(weight, length)  # length是每个病人的实际天数
-        # weighted average the hidden representation, shape of self._hidden is [batch_size, time_steps, lstm_size]
-        attention_weight = tf.tile(tf.expand_dims(attention_weight, 2), (1, 1, 2 * self._lstm_size))
+        if self._use_attention:
+            # expand static feature to concat with dynamic feature
+            expand_static_x = tf.tile(tf.expand_dims(self._static_x, 1), (1, self._time_steps, 1))
+            concat_x = tf.concat((expand_static_x, self._dynamic_x), -1)
+            # define the weight and bias to calculate attention weight
+            self._attention_weight = tf.Variable(tf.random_normal((self._static_features + self._dynamic_features, 1), ))
+            self._attention_b = tf.Variable(tf.zeros(1), tf.float32)
+            concat_x = tf.reshape(concat_x, (-1, self._static_features + self._dynamic_features))
+            weight = concat_x @ self._attention_weight + self._attention_b
+            weight = tf.reshape(weight, (-1, self._time_steps))  # batch_size * time_steps
+            # variable length softmax
+            attention_weight = self._variable_length_softmax(weight, length)  # length是每个病人的实际天数
+            # weighted average the hidden representation, shape of self._hidden is [batch_size, time_steps, lstm_size]
+            attention_weight = tf.tile(tf.expand_dims(attention_weight, 2), (1, 1, 2 * self._lstm_size))
 
-        self._hidden_rep = tf.reduce_sum(attention_weight * self._hidden_concat, 1)  # 最终隐藏层的表达
-        self._residual_output = residual_block(self._static_x, 200, {'is_training': self._is_train})
-        self._hidden_rep = tf.concat((self._hidden_rep, self._residual_output), 1)
+            self._hidden_rep = tf.reduce_sum(attention_weight * self._hidden_rep, 1)  # 最终隐藏层的表达
+        else:
+            self._hidden_rep = tf.reduce_sum(self._hidden_concat, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
+                                                                               (1, self._lstm_size * 2))
+
+        if self._use_resnet:
+            self._residual_output = residual_block(self._static_x, 200, {'is_training': self._is_train})
+            self._hidden_rep = tf.concat((self._hidden_rep, self._residual_output), 1)
 
     def _variable_length_softmax(self, logits, length):
         mask = tf.sequence_mask(length, self._time_steps)

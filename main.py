@@ -44,11 +44,14 @@ def main():
     elif args.model == "ResNet":
         experiments.resnet_model_experiments(args.save_file or "./resources/save/resnet_result.csv")
     elif args.model == "A-LSTM":
-        raise NotImplementedError
+        experiments.bi_lstm_attention_model_experiments(args.save_file or "./resources/save/a_lstm_res.csv",
+                                                        True, False)
     elif args.model == "A-LSTM-ResNet":
-        experiments.bi_lstm_attention_model_experiments(args.save_file or "./resources/save/a_lstm_res.csv")
+        experiments.bi_lstm_attention_model_experiments(args.save_file or "./resources/save/a_lstm_res.csv",
+                                                        True, True)
     elif args.model == "LSTM-ResNet":
-        raise NotImplementedError
+        experiments.bi_lstm_attention_model_experiments(args.save_file or "./resources/save/a_lstm_res.csv",
+                                                        False, True)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ import sys
 class UIInterface(object):
     def __init__(self):
         self.root = Tk()
-        self.root.geometry('500x320')
+        self.root.geometry('600x320')
 
         # 创建模型选择的Radio button
         self._model_selected = IntVar()  # 代表被选择的模型
@@ -26,8 +26,10 @@ class UIInterface(object):
     def _model_select_radio_button(self):
         Radiobutton(self.root, text="LSTM", variable=self._model_selected, value=1).place(x=20, y=20, anchor=W)
         Radiobutton(self.root, text="Bi-LSTM", variable=self._model_selected, value=2).place(x=20, y=40, anchor=W)
-        Radiobutton(self.root, text="A-LSTM", variable=self._model_selected, value=3).place(x=20, y=60, anchor=W)
+        Radiobutton(self.root, text="A-LSTM-RES", variable=self._model_selected, value=3).place(x=20, y=60, anchor=W)
         Radiobutton(self.root, text="ResNet", variable=self._model_selected, value=4).place(x=20, y=80, anchor=W)
+        Radiobutton(self.root, text="A-LSTM", variable=self._model_selected, value=5).place(x=100, y=20, anchor=W)
+        Radiobutton(self.root, text="LSTM-RES", variable=self._model_selected, value=6).place(x=100, y=40, anchor=W)
         Radiobutton(self.root, text='Lu', variable=self._input_file_select, value=1).place(x=20, y=100, anchor=W)
         Radiobutton(self.root, text='Sun', variable=self._input_file_select, value=2).place(x=20, y=120, anchor=W)
 
@@ -37,15 +39,15 @@ class UIInterface(object):
         Label(textvariable=StringVar(value="output_n_epochs"), justify=LEFT).place(x=20, y=180, anchor=W)
         Label(textvariable=StringVar(value="lstm_size"), justify=LEFT).place(x=20, y=220, anchor=W)
 
-        Label(textvariable=StringVar(value="acc"), justify=LEFT).place(x=150, y=100, anchor=W)
-        Label(textvariable=StringVar(value="auc"), justify=LEFT).place(x=150, y=130, anchor=W)
-        Label(textvariable=StringVar(value="precision"), justify=LEFT).place(x=150, y=160, anchor=W)
-        Label(textvariable=StringVar(value="recall"), justify=LEFT).place(x=150, y=190, anchor=W)
-        Label(textvariable=StringVar(value="f_score"), justify=LEFT).place(x=150, y=220, anchor=W)
+        Label(textvariable=StringVar(value="acc"), justify=LEFT).place(x=230, y=100, anchor=W)
+        Label(textvariable=StringVar(value="auc"), justify=LEFT).place(x=230, y=130, anchor=W)
+        Label(textvariable=StringVar(value="precision"), justify=LEFT).place(x=230, y=160, anchor=W)
+        Label(textvariable=StringVar(value="recall"), justify=LEFT).place(x=230, y=190, anchor=W)
+        Label(textvariable=StringVar(value="f_score"), justify=LEFT).place(x=230, y=220, anchor=W)
 
     def _place_some_text(self):
         self.loss_out_text = Text(self.root, height=4, width=50, state=DISABLED)
-        self.loss_out_text.place(x=150, y=30, anchor=W)
+        self.loss_out_text.place(x=230, y=30, anchor=W)
 
         self.epochs_text = Text(self.root, height=1, width=10)
         self.epochs_text.insert(END, 1000)
@@ -60,19 +62,19 @@ class UIInterface(object):
         self.lstm_size_text.place(x=20, y=240, anchor=W)
 
         self.acc_text = Text(height=2, width=40)
-        self.acc_text.place(x=220, y=100, anchor=W)
+        self.acc_text.place(x=300, y=100, anchor=W)
 
         self.auc_text = Text(height=2, width=40)
-        self.auc_text.place(x=220, y=130, anchor=W)
+        self.auc_text.place(x=300, y=130, anchor=W)
 
         self.precision_text = Text(height=2, width=40)
-        self.precision_text.place(x=220, y=160, anchor=W)
+        self.precision_text.place(x=300, y=160, anchor=W)
 
         self.recall_text = Text(height=2, width=40)
-        self.recall_text.place(x=220, y=190, anchor=W)
+        self.recall_text.place(x=300, y=190, anchor=W)
 
         self.f_score_text = Text(height=2, width=40)
-        self.f_score_text.place(x=220, y=220, anchor=W)
+        self.f_score_text.place(x=300, y=220, anchor=W)
 
     def _place_some_button(self):
         Button(self.root,
@@ -122,10 +124,16 @@ class UIInterface(object):
             _thread.start_new_thread(self._call_bi_lstm_experiment, (result_file,))
         elif value == 3:
             print("waiting....")
-            _thread.start_new_thread(self._call_attention_model_experiment, (result_file,))
+            _thread.start_new_thread(self._call_bi_attention_res_model_experiment, (result_file,))
         elif value == 4:
             print("waiting...")
             _thread.start_new_thread(self._call_res_model_experiment, (result_file,))
+        elif value == 5:
+            print("waiting....")
+            _thread.start_new_thread(self._call_bi_attention_model_experiment, (result_file,))
+        elif value == 6:
+            print("waiting....")
+            _thread.start_new_thread(self._call_bi_res_model_experiment, (result_file,))
 
     def _call_basic_lstm_experiment(self, result_file):
         acc, auc, precision, recall, f_score = experiments.basic_lstm_model_experiments(
@@ -145,8 +153,24 @@ class UIInterface(object):
         self.recall_text.insert(END, recall)
         self.f_score_text.insert(END, f_score)
 
-    def _call_attention_model_experiment(self, result_file):
-        acc, auc, precision, recall, f_score = experiments.bi_lstm_attention_model_experiments(result_file)
+    def _call_bi_attention_res_model_experiment(self, result_file):
+        acc, auc, precision, recall, f_score = experiments.bi_lstm_attention_model_experiments(result_file, True, True)
+        self.acc_text.insert(END, acc)
+        self.auc_text.insert(END, auc)
+        self.precision_text.insert(END, precision)
+        self.recall_text.insert(END, recall)
+        self.f_score_text.insert(END, f_score)
+
+    def _call_bi_attention_model_experiment(self, result_file):
+        acc, auc, precision, recall, f_score = experiments.bi_lstm_attention_model_experiments(result_file, True, False)
+        self.acc_text.insert(END, acc)
+        self.auc_text.insert(END, auc)
+        self.precision_text.insert(END, precision)
+        self.recall_text.insert(END, recall)
+        self.f_score_text.insert(END, f_score)
+
+    def _call_bi_res_model_experiment(self, result_file):
+        acc, auc, precision, recall, f_score = experiments.bi_lstm_attention_model_experiments(result_file, False, True)
         self.acc_text.insert(END, acc)
         self.auc_text.insert(END, auc)
         self.precision_text.insert(END, precision)

@@ -139,7 +139,7 @@ def bidirectional_lstm_model_experiments(result_file):
     return model_experiments(model, data_set, result_file)
 
 
-def bi_lstm_attention_model_experiments(result_file):
+def bi_lstm_attention_model_experiments(result_file, use_attention, use_resnet):
     if ExperimentSetup.data_source == 'lu':
         data_set = read_data_lu()
     else:
@@ -158,6 +158,8 @@ def bi_lstm_attention_model_experiments(result_file):
                                      time_steps,
                                      ExperimentSetup.lstm_size,
                                      n_output,
+                                     use_attention=use_attention,
+                                     use_resnet=use_resnet,
                                      batch_size=ExperimentSetup.batch_size,
                                      optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
                                      epochs=ExperimentSetup.epochs,
