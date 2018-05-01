@@ -2,11 +2,11 @@ import csv
 
 import numpy as np
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, recall_score, precision_score, roc_curve  # roc计算曲线
-from sklearn.model_selection import StratifiedShuffleSplit  # 创建随机数并打乱
+from sklearn.model_selection import StratifiedKFold  # 创建随机数并打乱
 import tensorflow as tf
 
 from data import read_data_lu, read_data_sun, DataSet
-from models import BasicLSTMModel, BidirectionalLSTMModel, LSTMWithStaticFeature, BiLSTMWithAttentionModel
+from models import *
 
 
 class ExperimentSetup(object):
@@ -49,7 +49,7 @@ def evaluate(tol_label, tol_pred, result_file='resources/save/evaluation_result.
             y_score = tol_pred[:, i]
             y_true = tol_label[:, i]
             fpr, tpr, thresholds = roc_curve(y_true, y_score)
-            f_writer.writerow('false positive rate and true positive rate of class {}'.format(i))
+            f_writer.writerow(['false positive rate and true positive rate of class {}'.format(i)])
             f_writer.writerow(fpr)
             f_writer.writerow(tpr)
         f_writer.writerow([accuracy])
@@ -65,8 +65,7 @@ def model_experiments(model, data_set, result_file):
     static_feature = data_set.static_feature
     dynamic_feature = data_set.dynamic_feature
     labels = data_set.labels
-    split = StratifiedShuffleSplit(ExperimentSetup.kfold, ExperimentSetup.test_size, ExperimentSetup.train_size) \
-        .split(static_feature, labels)
+    split = StratifiedKFold(ExperimentSetup.kfold, True).split(static_feature, labels)
 
     n_output = labels.shape[1]  # classes
 
@@ -188,7 +187,33 @@ def lstm_with_static_feature_model_experiments(result_file):
     return model_experiments(model, data_set, result_file)
 
 
+def conv_sru_model_experiments(result_file):
+    if ExperimentSetup.data_source == 'lu':
+        data_set = read_data_lu()
+    else:
+        data_set = read_data_sun()
+    static_feature = data_set.static_feature
+    dynamic_feature = data_set.dynamic_feature
+    labels = data_set.labels
+
+    static_n_features = static_feature.shape[1]
+    dynamic_n_features = dynamic_feature.shape[1]
+    time_steps = dynamic_feature.shape[1]
+    n_output = labels.shape[1]
+
+    model = ConvolutionModel(static_n_features,
+                             dynamic_n_features,
+                             time_steps,
+                             ExperimentSetup.lstm_size,
+                             n_output,
+                             batch_size=ExperimentSetup.batch_size,
+                             epochs=2,
+                             output_n_epochs=ExperimentSetup.output_n_epochs)
+    return model_experiments(model, data_set, result_file)
+
+
 if __name__ == '__main__':
     # basic_lstm_model_experiments('resources/save/basic_lstm.csv')
-    lstm_with_static_feature_model_experiments("resources/save/lstm_with_static.csv")
+    # lstm_with_static_feature_model_experiments("resources/save/lstm_with_static.csv")
     # bidirectional_lstm_model_experiments('resources/save/bidirectional_lstm.csv')
+    conv_sru_model_experiments('resources/save/conv_sru_model.csv')
