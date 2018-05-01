@@ -396,9 +396,9 @@ class ConvolutionModel(object):
             self._init_sess()
 
     def _placeholder(self):
-        self._static_x = tf.placeholder(tf.float32, [None, self._static_features])
-        self._dynamic_x = tf.placeholder(tf.float32, [None, self._time_steps, self._dynamic_features])
-        self._y = tf.placeholder(tf.float32, [None, self._n_class])
+        self._static_x = tf.placeholder(tf.float32, [None, self._static_features], 'static_x')
+        self._dynamic_x = tf.placeholder(tf.float32, [None, self._time_steps, self._dynamic_features], 'dynamic_x')
+        self._y = tf.placeholder(tf.float32, [None, self._n_class], 'labels')
 
     def _build_set(self):
         with tf.variable_scope('data_set'):
@@ -419,9 +419,9 @@ class ConvolutionModel(object):
         with tf.variable_scope('conv'):
             self._map_weight = tf.Variable(xavier_init(self._static_features, self._dynamic_features), dtype=tf.float32)
             self._map_bias = tf.Variable(tf.zeros(self._dynamic_features))
-            self._static_map = self._static_x @ self._map_weight + self._map_bias
+            self._static_map = self._static_x_batch @ self._map_weight + self._map_bias
             self._static_map = tf.expand_dims(self._static_map, 1)  # shape (batch, 1, d_features)
-            self._concat_feature = tf.concat((self._static_map, self._dynamic_x), 1)
+            self._concat_feature = tf.concat((self._static_map, self._dynamic_x_batch), 1)
             self._concat_feature = tf.expand_dims(self._concat_feature, -1)  # shape (batch, time_step+1, d_features, 1)
 
             self._conv_hidden = tf.contrib.layers.conv2d(self._concat_feature,
@@ -437,10 +437,10 @@ class ConvolutionModel(object):
             self._zero_state = self._sru_cell.zero_state(self._batch_size, tf.float32)
 
             mask, length = self._length()
-            self._rnn_hidden = tf.nn.dynamic_rnn(cell=self._sru_cell,
-                                                 inputs=self._conv_hidden,
-                                                 sequence_length=length,
-                                                 initial_state=self._zero_state)
+            self._rnn_hidden, _ = tf.nn.dynamic_rnn(cell=self._sru_cell,
+                                                    inputs=self._conv_hidden,
+                                                    sequence_length=length,
+                                                    initial_state=self._zero_state)
             self._hidden_rep = tf.reduce_sum(self._rnn_hidden, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
                                                                             (1, self._hidden_size))
 
@@ -451,7 +451,7 @@ class ConvolutionModel(object):
             self._pred = tf.nn.softmax(self._output, name="pred")
 
         with tf.variable_scope("loss"):
-            self._loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(self._y, self._output), name='loss')
+            self._loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(self._y_batch, self._output), name='loss')
 
         self._train_op = tf.train.AdamOptimizer().minimize(self._loss)
 
@@ -486,5 +486,5 @@ class ConvolutionModel(object):
                 pred.append(self._sess.run(pred))
             except tf.errors.OutOfRangeError:
                 break
-        pred = np.vstack(pred)
+        pred = np.concatenate(pred, 0)
         return pred

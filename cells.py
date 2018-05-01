@@ -1,7 +1,13 @@
 import tensorflow as tf
+from tensorflow.python.layers import base as base_layer
 
 
-class SRUCell(tf.contrib.rnn.BasicLSTMCell):
+class LayerRNNCell(tf.contrib.rnn.RNNCell):
+    def __call__(self, inputs, state, scope=None, *args, **kwargs):
+        return base_layer.Layer.__call__(self, inputs, state, scope=scope, *args, **kwargs)
+
+
+class SRUCell(LayerRNNCell):
     def __init__(self,
                  num_unit,
                  state_is_tuple=True,
@@ -16,7 +22,7 @@ class SRUCell(tf.contrib.rnn.BasicLSTMCell):
 
     @property
     def state_size(self):
-        return (tf.contrib.rnn.LSTMStateTupe(self._num_unit, self._num_unit)
+        return (tf.contrib.rnn.LSTMStateTuple(self._num_unit, self._num_unit)
                 if self._state_is_tuple else 2 * self._num_unit)
 
     @property
@@ -49,7 +55,7 @@ class SRUCell(tf.contrib.rnn.BasicLSTMCell):
         new_h = r * self._activation(new_c) + (1 - r) * inputs
 
         if self._state_is_tuple:
-            new_state = tf.contrib.rnn.LSTMStateTupe(new_c, new_h)
+            new_state = tf.contrib.rnn.LSTMStateTuple(new_c, new_h)
         else:
             new_state = tf.concat((new_c, new_h), axis=1)
-        return new_c, new_state
+        return new_h, new_state

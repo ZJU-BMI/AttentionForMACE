@@ -2,7 +2,7 @@ import csv
 
 import numpy as np
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, recall_score, precision_score, roc_curve  # roc计算曲线
-from sklearn.model_selection import StratifiedKFold  # 创建随机数并打乱
+from sklearn.model_selection import StratifiedShuffleSplit  # 创建随机数并打乱
 import tensorflow as tf
 
 from data import read_data_lu, read_data_sun, DataSet
@@ -65,7 +65,8 @@ def model_experiments(model, data_set, result_file):
     static_feature = data_set.static_feature
     dynamic_feature = data_set.dynamic_feature
     labels = data_set.labels
-    split = StratifiedKFold(ExperimentSetup.kfold, True).split(static_feature, labels)
+    split = StratifiedShuffleSplit(ExperimentSetup.kfold, ExperimentSetup.test_size, ExperimentSetup.train_size) \
+        .split(static_feature, labels)
 
     n_output = labels.shape[1]  # classes
 
@@ -222,7 +223,7 @@ def conv_sru_model_experiments(result_file):
     labels = data_set.labels
 
     static_n_features = static_feature.shape[1]
-    dynamic_n_features = dynamic_feature.shape[1]
+    dynamic_n_features = dynamic_feature.shape[2]
     time_steps = dynamic_feature.shape[1]
     n_output = labels.shape[1]
 
