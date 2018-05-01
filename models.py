@@ -1,6 +1,19 @@
 import tensorflow as tf
 import numpy as np
 
+from cells import SRUCell
+from data import DataSet
+
+
+__all__ = [
+    "BasicLSTMModel",
+    "BidirectionalLSTMModel",
+    "LSTMWithStaticFeature",
+    "BiLSTMWithAttentionModel",
+    "ConvolutionModel",
+    "ResNet"
+]
+
 
 def xavier_init(fan_in, fan_out, constant=1):  # 什么意思
     low = -constant * np.sqrt(6.0 / (fan_in + fan_out))
@@ -60,7 +73,7 @@ class BasicLSTMModel(object):
             self._sess = tf.Session()  # 会话
 
     def _hidden_layer(self):
-        lstm = tf.contrib.rnn.BasicLSTMCell(self._lstm_size)  # ??????
+        lstm = tf.contrib.rnn.BasicLSTMCell(self._lstm_size)
         init_state = lstm.zero_state(tf.shape(self._x)[0], tf.float32)  # 全零向量
 
         mask, length = self._length()  # 每个病人的实际天数
@@ -356,3 +369,122 @@ class ResNet(object):
     def predict(self, test_set):
         return self._sess.run(self._pred, feed_dict={self._static_x: test_set.static_feature,
                                                      self._is_training: False})
+
+
+class ConvolutionModel(object):
+    def __init__(self, static_features, dynamic_feature, time_steps, hidden_size, n_class,
+                 batch_size=128, epochs=10000, output_n_epochs=20, name="ConvolutionModel"):
+        self._static_features = static_features
+        self._dynamic_features = dynamic_feature
+        self._time_steps = time_steps
+        self._hidden_size = hidden_size
+        self._n_class = n_class
+        self._name = name
+        self._batch_size = batch_size
+        self._epochs = epochs
+        self._output_n_epochs = output_n_epochs
+
+        self._build()
+
+    def _build(self):
+        with tf.variable_scope(self._name):
+            self._placeholder()
+            self._build_set()
+            self._conv_layer()
+            self._recurrent_layer()
+            self._out_layer()
+            self._init_sess()
+
+    def _placeholder(self):
+        self._static_x = tf.placeholder(tf.float32, [None, self._static_features])
+        self._dynamic_x = tf.placeholder(tf.float32, [None, self._time_steps, self._dynamic_features])
+        self._y = tf.placeholder(tf.float32, [None, self._n_class])
+
+    def _build_set(self):
+        with tf.variable_scope('data_set'):
+            self._train_set = tf.data.Dataset.from_tensor_slices((self._static_x, self._dynamic_x, self._y))
+            self._train_set = self._train_set.repeat().shuffle(self._batch_size * 10).batch(self._batch_size)
+
+            self._test_set = tf.data.Dataset.from_tensor_slices((self._static_x, self._dynamic_x, self._y))
+            self._test_set = self._test_set.batch(1)
+
+            self._iter = tf.data.Iterator.from_structure(self._train_set.output_types,
+                                                         self._train_set.output_shapes)
+            self._static_x_batch, self._dynamic_x_batch, self._y_batch = self._iter.get_next()
+
+            self._switch_train = self._iter.make_initializer(self._train_set)
+            self._switch_test = self._iter.make_initializer(self._test_set)
+
+    def _conv_layer(self):
+        with tf.variable_scope('conv'):
+            self._map_weight = tf.Variable(xavier_init(self._static_features, self._dynamic_features), dtype=tf.float32)
+            self._map_bias = tf.Variable(tf.zeros(self._dynamic_features))
+            self._static_map = self._static_x @ self._map_weight + self._map_bias
+            self._static_map = tf.expand_dims(self._static_map, 1)  # shape (batch, 1, d_features)
+            self._concat_feature = tf.concat((self._static_map, self._dynamic_x), 1)
+            self._concat_feature = tf.expand_dims(self._concat_feature, -1)  # shape (batch, time_step+1, d_features, 1)
+
+            self._conv_hidden = tf.contrib.layers.conv2d(self._concat_feature,
+                                                         self._hidden_size,
+                                                         [2, self._dynamic_features],
+                                                         padding="VALID")  # (batch, time, 1, 200)
+            self._conv_hidden = tf.reshape(self._conv_hidden,
+                                           [-1, self._time_steps, self._hidden_size])  # (batch, time, 200)
+
+    def _recurrent_layer(self):
+        with tf.variable_scope('recurrent'):
+            self._sru_cell = SRUCell(self._hidden_size)
+            self._zero_state = self._sru_cell.zero_state(self._batch_size, tf.float32)
+
+            mask, length = self._length()
+            self._rnn_hidden = tf.nn.dynamic_rnn(cell=self._sru_cell,
+                                                 inputs=self._conv_hidden,
+                                                 sequence_length=length,
+                                                 initial_state=self._zero_state)
+            self._hidden_rep = tf.reduce_sum(self._rnn_hidden, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
+                                                                            (1, self._hidden_size))
+
+    def _out_layer(self):
+        with tf.variable_scope("output"):
+            self._output = tf.contrib.layers.fully_connected(self._hidden_rep, self._n_class,
+                                                             activation_fn=tf.identity)  # 输出层
+            self._pred = tf.nn.softmax(self._output, name="pred")
+
+        with tf.variable_scope("loss"):
+            self._loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(self._y, self._output), name='loss')
+
+        self._train_op = tf.train.AdamOptimizer().minimize(self._loss)
+
+    def _length(self):
+        mask = tf.sign(tf.reduce_max(tf.abs(self._dynamic_x_batch), 2))
+        length = tf.reduce_sum(mask, 1)
+        length = tf.cast(length, tf.int32)
+        return mask, length
+
+    def _init_sess(self):
+        self._sess = tf.Session()
+
+    def fit(self, data_set: DataSet):
+        self._sess.run(tf.global_variables_initializer())
+        self._sess.run(self._switch_train, feed_dict={self._static_x: data_set.static_feature,
+                                                      self._dynamic_x: data_set.dynamic_feature,
+                                                      self._y: data_set.labels})
+        for i in range(self._epochs):
+            self._sess.run(self._train_op)
+
+            if i % self._output_n_epochs == 0:
+                _, loss = self._sess.run((self._train_op, self._loss))
+                print(loss)
+
+    def predict(self, data_set: DataSet):
+        self._sess.run(self._switch_test, feed_dict={self._static_x: data_set.static_feature,
+                                                     self._dynamic_x: data_set.dynamic_feature,
+                                                     self._y: data_set.labels})
+        pred = []
+        while True:
+            try:
+                pred.append(self._sess.run(pred))
+            except tf.errors.OutOfRangeError:
+                break
+        pred = np.vstack(pred)
+        return pred
