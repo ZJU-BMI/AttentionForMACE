@@ -50,7 +50,7 @@ class SRUCell(LayerRNNCell):
 
         i, f, r = tf.split(value=gate_inputs, num_or_size_splits=3, axis=1)
         f = tf.nn.sigmoid(f)
-        r = tf.nn.sigmoid(f)
+        r = tf.nn.sigmoid(r)
         new_c = f * c + (1 - f) * i
         new_h = r * self._activation(new_c) + (1 - r) * inputs
 
@@ -59,3 +59,42 @@ class SRUCell(LayerRNNCell):
         else:
             new_state = tf.concat((new_c, new_h), axis=1)
         return new_h, new_state
+
+
+class MySRU(tf.contrib.rnn.RNNCell):
+    def __init__(self,
+                 num_unit,
+                 state_is_tuple=True,
+                 activation=tf.nn.tanh):
+        self._num_unit = num_unit
+        self._state_is_tuple = state_is_tuple
+        self._activation = activation
+        self._forget_bias = tf.Variable(tf.zeros(1), dtype=tf.float32)
+        self._reset_bias = tf.Variable(tf.zeros(1), dtype=tf.float32)
+
+    def __call__(self, inputs, state, scope=None, **kwargs):
+        if self._state_is_tuple:
+            c, h = state
+        else:
+            c, h = tf.split(value=state, num_or_size_splits=2, axis=1)
+
+        i, f, r = tf.split(value=inputs, num_or_size_splits=3, axis=1)
+        f = tf.nn.sigmoid(f + self._forget_bias)
+        r = tf.nn.sigmoid(r + self._reset_bias)
+        new_c = f * c + (1 - f) * i
+        new_h = r * self._activation(new_c) + (1 - r) * inputs
+
+        if self._state_is_tuple:
+            new_state = tf.contrib.rnn.LSTMStateTuple(new_c, new_h)
+        else:
+            new_state = tf.concat((new_c, new_h), axis=1)
+        return new_h, new_state
+
+    @property
+    def state_size(self):
+        return (tf.contrib.rnn.LSTMStateTuple(self._num_unit, self._num_unit)
+                if self._state_is_tuple else 2 * self._num_unit)
+
+    @property
+    def output_size(self):
+        return self._num_unit

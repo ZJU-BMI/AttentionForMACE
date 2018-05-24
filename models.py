@@ -1,9 +1,8 @@
 import tensorflow as tf
 import numpy as np
 
-from cells import SRUCell
+from cells import SRUCell, MySRU
 from data import DataSet
-
 
 __all__ = [
     "BasicLSTMModel",
@@ -81,8 +80,7 @@ class BasicLSTMModel(object):
                                             self._x,
                                             sequence_length=length,
                                             initial_state=init_state)
-        self._hidden_rep = tf.reduce_sum(self._hidden, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
-                                                                    (1, self._lstm_size))
+        self._hidden_rep = tf.reduce_sum(self._hidden, 1) / tf.reduce_sum(mask, 1, keepdims=True)
 
     def _length(self):
         mask = tf.sign(tf.reduce_max(tf.abs(self._x), 2))
@@ -131,8 +129,7 @@ class BidirectionalLSTMModel(BasicLSTMModel):
                                                           initial_state_fw=self._init_state['forward'],
                                                           initial_state_bw=self._init_state['backward'])
         self._hidden_concat = tf.concat(self._hidden, axis=2)  # 沿着num_features的方向进行拼接
-        self._hidden_rep = tf.reduce_sum(self._hidden_concat, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
-                                                                           (1, self._lstm_size * 2))
+        self._hidden_rep = tf.reduce_sum(self._hidden_concat, 1) / tf.reduce_sum(mask, 1, keepdims=True)
 
 
 class LSTMWithStaticFeature(object):
@@ -167,8 +164,7 @@ class LSTMWithStaticFeature(object):
                                                               initial_state_fw=self._init_state['forward'],
                                                               initial_state_bw=self._init_state['backward'])
             self._hidden_concat = tf.concat(self._hidden, axis=2)
-            self._hidden_sum = tf.reduce_sum(self._hidden_concat, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
-                                                                               (1, lstm_size * 2))
+            self._hidden_sum = tf.reduce_sum(self._hidden_concat, 1) / tf.reduce_sum(mask, 1, keepdims=True)
             self._hidden_rep = tf.concat((self._hidden_sum, self._static_input), axis=1)
 
             self._output = tf.contrib.layers.fully_connected(self._hidden_rep, n_output,
@@ -262,20 +258,20 @@ class BiLSTMWithAttentionModel(object):
             expand_static_x = tf.tile(tf.expand_dims(self._static_x, 1), (1, self._time_steps, 1))
             concat_x = tf.concat((expand_static_x, self._dynamic_x), -1)
             # define the weight and bias to calculate attention weight
-            self._attention_weight = tf.Variable(tf.random_normal((self._static_features + self._dynamic_features, 1), ))
+            self._attention_weight = tf.Variable(
+                tf.random_normal((self._static_features + self._dynamic_features, 1), ))
             self._attention_b = tf.Variable(tf.zeros(1), tf.float32)
-            concat_x = tf.reshape(concat_x, (-1, self._static_features + self._dynamic_features))
+            # concat_x = tf.reshape(concat_x, (-1, self._static_features + self._dynamic_features))
             weight = concat_x @ self._attention_weight + self._attention_b
-            weight = tf.reshape(weight, (-1, self._time_steps))  # batch_size * time_steps
+            # weight = tf.reshape(weight, (-1, self._time_steps))  # batch_size * time_steps
             # variable length softmax
             attention_weight = self._variable_length_softmax(weight, length)  # length是每个病人的实际天数
             # weighted average the hidden representation, shape of self._hidden is [batch_size, time_steps, lstm_size]
-            attention_weight = tf.tile(tf.expand_dims(attention_weight, 2), (1, 1, 2 * self._lstm_size))
+            attention_weight = tf.expand_dims(tf.expand_dims(attention_weight, 2), -1)
 
             self._hidden_rep = tf.reduce_sum(attention_weight * self._hidden_rep, 1)  # 最终隐藏层的表达
         else:
-            self._hidden_rep = tf.reduce_sum(self._hidden_concat, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
-                                                                               (1, self._lstm_size * 2))
+            self._hidden_rep = tf.reduce_sum(self._hidden_concat, 1) / tf.reduce_sum(mask, 1, keepdims=True)
 
         if self._use_resnet:
             self._residual_output = residual_block(self._static_x, 200, {'is_training': self._is_train})
@@ -433,16 +429,17 @@ class ConvolutionModel(object):
 
     def _recurrent_layer(self):
         with tf.variable_scope('recurrent'):
+            self._rnn_weight = tf.Variable(xavier_init(self._hidden_size, 3 * self._hidden_size), dtype=tf.float32)
+            self._rnn_input = self._conv_hidden @ self._rnn_weight
             self._sru_cell = SRUCell(self._hidden_size)
             self._zero_state = self._sru_cell.zero_state(self._batch_size, tf.float32)
 
             mask, length = self._length()
             self._rnn_hidden, _ = tf.nn.dynamic_rnn(cell=self._sru_cell,
-                                                    inputs=self._conv_hidden,
+                                                    inputs=self._rnn_input,
                                                     sequence_length=length,
                                                     initial_state=self._zero_state)
-            self._hidden_rep = tf.reduce_sum(self._rnn_hidden, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
-                                                                            (1, self._hidden_size))
+            self._hidden_rep = tf.reduce_sum(self._rnn_hidden, 1) / tf.reduce_sum(mask, 1, keepdims=True)
 
     def _out_layer(self):
         with tf.variable_scope("output"):
