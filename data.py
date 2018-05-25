@@ -10,31 +10,27 @@ class DataSet(object):
         self._labels = labels
         self._num_examples = labels.shape[0]  # 这是什么意思
         self._epoch_completed = 0
+        self._batch_completed = 0
         self._index_in_epoch = 0
 
     def next_batch(self, batch_size):
-        if batch_size > self.num_examples:
-            raise ValueError('The size of one batch: {} should be less than the total number of '
-                             'data: {}'.format(batch_size, self.num_examples))
-
+        if batch_size > self.num_examples or batch_size <= 0:
+            # raise ValueError('The size of one batch: {} should be less than the total number of '
+            #                  'data: {}'.format(batch_size, self.num_examples))
+            batch_size = self._labels.shape[0]
+        if self._batch_completed == 0:
+            self._shuffle()
+        self._batch_completed += 1
         start = self._index_in_epoch
         if start + batch_size > self.num_examples:
             self._epoch_completed += 1
-            rest_num_examples = self._num_examples - start
             static_rest_part = self._static_feature[start:self._num_examples]
             dynamic_rest_part = self._dynamic_feature[start:self._num_examples]
             label_rest_part = self._labels[start:self._num_examples]
 
-            self._shuffle()  # 打乱
-            start = 0
-            self._index_in_epoch = batch_size - rest_num_examples
-            end = self._index_in_epoch
-            static_new_part = self._static_feature[start:end]
-            dynamic_new_part = self._dynamic_feature[start:end]
-            label_new_part = self._labels[start:end]
-            return (np.concatenate((static_rest_part, static_new_part), axis=0),
-                    np.concatenate((dynamic_rest_part, dynamic_new_part), axis=0),
-                    np.concatenate((label_rest_part, label_new_part), axis=0))
+            self._shuffle()  # 打乱,在一个新的epoch里重新打乱
+            self._index_in_epoch = 0
+            return static_rest_part, dynamic_rest_part, label_rest_part
         else:
             self._index_in_epoch += batch_size
             end = self._index_in_epoch
@@ -108,20 +104,20 @@ def read_data_sun():
 
         label_set = pd.read_csv('resources/treatment_5_fold/7Day/m{0}.csv'.format(i), index_col=0, encoding='utf-8')
         label = label_set.as_matrix()
-        for k in label:
-            if k == ['None']:
-                k = [1, 0, 0, 0]
-            elif k == ['Ischemia']:
-                k = [0, 1, 0, 0]
-            elif k == ['Bleeding']:
-                k = [0, 0, 1, 0]
-            else:
-                k = [0, 0, 0, 1]
         # for k in label:
         #     if k == ['None']:
-        #         k = [1, 0]
+        #         k = [1, 0, 0, 0]
+        #     elif k == ['Ischemia']:
+        #         k = [0, 1, 0, 0]
+        #     elif k == ['Bleeding']:
+        #         k = [0, 0, 1, 0]
         #     else:
-        #         k = [0, 1]
+        #         k = [0, 0, 0, 1]
+        for k in label:
+            if k == ['None']:
+                k = [1, 0]
+            else:
+                k = [0, 1]
             labels.append(k)
     labels = np.array(labels)
     static_features = np.array(static_features).reshape([-1, 232])
@@ -163,10 +159,10 @@ def read_data_lu():
             label = [0, 0, 1, 0]
         else:
             label = [0, 0, 0, 1]  # 缺血，出血
-        # if np.all(label == [[0, 0]]):
-        #     label = [1, 0]
-        # else:
-        #     label = [0, 1]
+    #     if np.all(label == [[0, 0]]):
+    #         label = [1, 0]
+    #     else:
+    #         label = [0, 1]
         labels.append(label)
     labels = np.array(labels)
     return DataSet(static_feature, dynamic_feature, labels)

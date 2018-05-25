@@ -17,9 +17,9 @@ class ExperimentSetup(object):
     random_state = 1
 
     lstm_size = 200
-    learning_rate = 0.001
-    epochs = 1000
-    output_n_epochs = 20
+    learning_rate = 0.0001
+    epochs = 20
+    output_n_epochs = 1
     data_source = "lu"
 
 
@@ -79,12 +79,12 @@ def model_experiments(model, data_set, result_file):
         train_y = labels[train_idx]
         train_set = DataSet(train_static, train_dynamic, train_y)
 
-        model.fit(train_set)
-
         test_static = static_feature[test_idx]
         test_dynamic = dynamic_feature[test_idx]
         test_y = labels[test_idx]
         test_set = DataSet(test_static, test_dynamic, test_y)
+
+        model.fit(train_set, test_set)
 
         y_score = model.predict(test_set)
         tol_pred = np.vstack((tol_pred, y_score))
@@ -215,5 +215,9 @@ def lstm_with_static_feature_model_experiments(result_file):
 
 if __name__ == '__main__':
     # basic_lstm_model_experiments('resources/save/basic_lstm.csv')
-    lstm_with_static_feature_model_experiments("resources/save/lstm_with_static.csv")
+    # lstm_with_static_feature_model_experiments("resources/save/lstm_with_static.csv")
     # bidirectional_lstm_model_experiments('resources/save/bidirectional_lstm.csv')
+    # bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', True, True)
+    bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', False, True)
+    bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', False, False)
+

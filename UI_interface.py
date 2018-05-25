@@ -90,7 +90,9 @@ class UIInterface(object):
         self.precision_text.delete('1.0', END)
         self.recall_text.delete('1.0', END)
         self.f_score_text.delete('1.0', END)
+        self.loss_out_text.config(state=NORMAL)
         self.loss_out_text.delete('1.0', END)
+        self.loss_out_text.config(state=DISABLED)
 
         value = self._model_selected.get()
         v = self._input_file_select.get()

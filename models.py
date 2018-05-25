@@ -1,3 +1,5 @@
+import sklearn
+
 import tensorflow as tf
 import numpy as np
 
@@ -154,7 +156,7 @@ class LSTMWithStaticFeature(object):
                                                               initial_state_fw=self._init_state['forward'],
                                                               initial_state_bw=self._init_state['backward'])
             self._hidden_concat = tf.concat(self._hidden, axis=2)
-            self._hidden_sum = tf.reduce_sum(self._hidden_concat, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
+            self._hidden_sum = tf.reduce_sum(self._hidden_concat, 1) / tf.tile(tf.reduce_sum(mask, 1, keep_dims=True),
                                                                                (1, lstm_size * 2))
             self._hidden_rep = tf.concat((self._hidden_sum, self._static_input), axis=1)
 
@@ -227,6 +229,7 @@ class BiLSTMWithAttentionModel(object):
             self._train_op = optimizer.minimize(self._loss)
 
             self._sess = tf.Session()  # 会话
+        self._saver = tf.train.Saver()
 
     def _hidden_layer(self):
         self._lstm = {}
@@ -249,19 +252,19 @@ class BiLSTMWithAttentionModel(object):
             expand_static_x = tf.tile(tf.expand_dims(self._static_x, 1), (1, self._time_steps, 1))
             concat_x = tf.concat((expand_static_x, self._dynamic_x), -1)
             # define the weight and bias to calculate attention weight
-            self._attention_weight = tf.Variable(tf.random_normal((self._static_features + self._dynamic_features, 1), ))
-            self._attention_b = tf.Variable(tf.zeros(1), tf.float32)
+            attention_weight = tf.Variable(tf.random_normal((self._static_features + self._dynamic_features, 1), ))
+            attention_b = tf.Variable(tf.zeros(1), tf.float32)
             concat_x = tf.reshape(concat_x, (-1, self._static_features + self._dynamic_features))
-            weight = concat_x @ self._attention_weight + self._attention_b
+            weight = concat_x @ attention_weight + attention_b
             weight = tf.reshape(weight, (-1, self._time_steps))  # batch_size * time_steps
             # variable length softmax
-            attention_weight = self._variable_length_softmax(weight, length)  # length是每个病人的实际天数
+            self._attention_weight = self._variable_length_softmax(weight, length)  # length是每个病人的实际天数
             # weighted average the hidden representation, shape of self._hidden is [batch_size, time_steps, lstm_size]
-            attention_weight = tf.tile(tf.expand_dims(attention_weight, 2), (1, 1, 2 * self._lstm_size))
+            attention_weight = tf.tile(tf.expand_dims(self._attention_weight, 2), (1, 1, 2 * self._lstm_size))
 
-            self._hidden_rep = tf.reduce_sum(attention_weight * self._hidden_rep, 1)  # 最终隐藏层的表达
+            self._hidden_rep = tf.reduce_sum(attention_weight * self._hidden_concat, 1)  # 最终隐藏层的表达
         else:
-            self._hidden_rep = tf.reduce_sum(self._hidden_concat, 1) / tf.tile(tf.reduce_sum(mask, 1, keepdims=True),
+            self._hidden_rep = tf.reduce_sum(self._hidden_concat, 1) / tf.tile(tf.reduce_sum(mask, 1, keep_dims=True),
                                                                                (1, self._lstm_size * 2))
 
         if self._use_resnet:
@@ -280,11 +283,12 @@ class BiLSTMWithAttentionModel(object):
         length = tf.cast(length, tf.int32)
         return mask, length
 
-    def fit(self, data_set):
+    def fit(self, data_set, test_set):
         self._sess.run(tf.global_variables_initializer())
         data_set.epoch_completed = 0
 
         logged = set()
+        print("auc_qx   auc_cx  auc_both    epoch   loss")
         while data_set.epoch_completed < self._epochs:
             static_feature, dynamic_feature, labels = data_set.next_batch(self._batch_size)
             self._sess.run(self._train_op, feed_dict={self._static_x: static_feature,
@@ -298,12 +302,28 @@ class BiLSTMWithAttentionModel(object):
                                                              self._dynamic_x: dynamic_feature,
                                                              self._is_train: True,
                                                              self._y: labels})
-                print("loss of epochs {} is {}".format(data_set.epoch_completed, loss))
+                y_score = self.predict(test_set)
+                auc_qx = sklearn.metrics.roc_auc_score(test_set.labels[:, 1], y_score[:, 1])
+                auc_cx = sklearn.metrics.roc_auc_score(test_set.labels[:, 2], y_score[:, 2])
+                auc_both = sklearn.metrics.roc_auc_score(test_set.labels[:, 3], y_score[:, 3])
+                print("{}\t{}\t{}\t{}\t{}".format(auc_qx, auc_cx, auc_both, data_set.epoch_completed, loss))
+        self.save(epoch=data_set.epoch_completed)
 
     def predict(self, data_set):
         return self._sess.run(self._pred, feed_dict={self._static_x: data_set.static_feature,
                                                      self._dynamic_x: data_set.dynamic_feature,
                                                      self._is_train: False})
+
+    def out_attention_weight(self, data_set):
+        return self._sess.run(self._attention_weight, feed_dict={self._static_x: data_set.static_feature,
+                                                                 self._dynamic_x: data_set.dynamic_feature,
+                                                                 self._is_train: False})
+
+    def save(self, path='./model_save/BLAR', epoch=200):
+        self._saver.save(self._sess, path, epoch)
+
+    def restore(self, path='./model_save'):
+        self._saver.restore(self._sess, tf.train.latest_checkpoint(path))
 
 
 class ResNet(object):
