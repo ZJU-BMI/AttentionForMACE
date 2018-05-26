@@ -247,6 +247,19 @@ class BiLSTMWithAttentionModel(object):
                                                           initial_state_bw=self._init_state['backward'])
         self._hidden_concat = tf.concat(self._hidden, axis=2)  # 沿着num_features的方向进行拼接
 
+        """# 原意正确写法
+        if self._use_attention:
+            # expand static feature to concat with dynamic feature
+            expand_static_x = tf.tile(tf.expand_dims(self._static_x, 1), (1, self._time_steps, 1))
+            concat_x = tf.concat((expand_static_x, self._dynamic_x), -1)
+            attention_logits = tf.contrib.layers.fully_connected(concat_x, 1, activation_fn=tf.identity)
+            self._attention_weight = self._variable_length_softmax(tf.reshape(attention_logits,[-1, self._time_steps]), length)
+            # self._hidden_rep = tf.reshape(tf.matmul(tf.transpose(self._attention_weight, [0, 2, 1]),
+            #                                         self._hidden_concat), [-1, 2 * self._lstm_size])
+            self._hidden_rep = tf.reshape(tf.matmul(tf.reshape(self._attention_weight, [-1, 1, self._time_steps]),
+                                                    self._hidden_concat), [-1, 2 * self._lstm_size])"""
+
+        """陈晓芳原版
         if self._use_attention:
             # expand static feature to concat with dynamic feature
             expand_static_x = tf.tile(tf.expand_dims(self._static_x, 1), (1, self._time_steps, 1))
@@ -262,7 +275,16 @@ class BiLSTMWithAttentionModel(object):
             # weighted average the hidden representation, shape of self._hidden is [batch_size, time_steps, lstm_size]
             attention_weight = tf.tile(tf.expand_dims(self._attention_weight, 2), (1, 1, 2 * self._lstm_size))
 
-            self._hidden_rep = tf.reduce_sum(attention_weight * self._hidden_concat, 1)  # 最终隐藏层的表达
+            self._hidden_rep = tf.reduce_sum(attention_weight * self._hidden_concat, 1)  # 最终隐藏层的表达"""
+        # 自己的设想尝试？
+        if self._use_attention:
+            static_trans = tf.nn.sigmoid(self._static_x)
+            static_trans = tf.expand_dims(static_trans, 2)
+            dynamic_trans = tf.nn.sigmoid(tf.contrib.layers.fully_connected(self._dynamic_x, self._static_features))
+            attention_logits = tf.reshape(tf.matmul(dynamic_trans, static_trans), [-1, self._time_steps])
+            self._attention_weight = self._variable_length_softmax(attention_logits, length)
+            self._hidden_rep = tf.reshape(tf.matmul(tf.reshape(self._attention_weight, [-1, 1, self._time_steps]),
+                                                    self._hidden_concat), [-1, 2 * self._lstm_size])
         else:
             self._hidden_rep = tf.reduce_sum(self._hidden_concat, 1) / tf.tile(tf.reduce_sum(mask, 1, keep_dims=True),
                                                                                (1, self._lstm_size * 2))
@@ -324,6 +346,10 @@ class BiLSTMWithAttentionModel(object):
 
     def restore(self, path='./model_save'):
         self._saver.restore(self._sess, tf.train.latest_checkpoint(path))
+
+    def close(self):
+        self._sess.close()
+        tf.reset_default_graph()
 
 
 class ResNet(object):

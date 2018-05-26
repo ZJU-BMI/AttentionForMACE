@@ -1,4 +1,5 @@
 import csv
+import time
 
 import numpy as np
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, recall_score, precision_score, roc_curve  # roc计算曲线
@@ -18,7 +19,7 @@ class ExperimentSetup(object):
 
     lstm_size = 200
     learning_rate = 0.0001
-    epochs = 20
+    epochs = 30
     output_n_epochs = 1
     data_source = "lu"
 
@@ -72,7 +73,7 @@ def model_experiments(model, data_set, result_file):
 
     tol_pred = np.zeros(shape=(0, n_output))
     tol_label = np.zeros(shape=(0, n_output), dtype=np.int32)
-
+    i = 1
     for train_idx, test_idx in split:
         train_static = static_feature[train_idx]
         train_dynamic = dynamic_feature[train_idx]
@@ -89,7 +90,11 @@ def model_experiments(model, data_set, result_file):
         y_score = model.predict(test_set)
         tol_pred = np.vstack((tol_pred, y_score))
         tol_label = np.vstack((tol_label, test_y))
+        print("Cross validation: {} of {}".format(i, ExperimentSetup.kfold),
+              time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+        i += 1
 
+    model.close()
     return evaluate(tol_label, tol_pred, result_file)
 
 
@@ -217,7 +222,10 @@ if __name__ == '__main__':
     # basic_lstm_model_experiments('resources/save/basic_lstm.csv')
     # lstm_with_static_feature_model_experiments("resources/save/lstm_with_static.csv")
     # bidirectional_lstm_model_experiments('resources/save/bidirectional_lstm.csv')
-    # bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', True, True)
-    bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', False, True)
-    bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', False, False)
-
+    for i in range(1):
+        print("res_bi-lstm_att")
+        bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', True, True)
+        print("res_bi-lstm")
+        bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', False, True)
+        print("bi-lstm")
+        bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', False, False)
