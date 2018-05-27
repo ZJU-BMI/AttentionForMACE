@@ -10,7 +10,8 @@ __all__ = [
     "LSTMWithStaticFeature",
     "BiLSTMWithAttentionModel",
     "ConvolutionModel",
-    "ResNet"
+    "ResNet",
+    "KnowledgeBaseModel"
 ]
 
 
@@ -207,7 +208,7 @@ class LSTMWithStaticFeature(object):
 class BiLSTMWithAttentionModel(object):
     def __init__(self, static_features, dynamic_features, time_steps, lstm_size, n_output, use_attention=True,
                  use_resnet=True, batch_size=64, epochs=1000, output_n_epoch=10, optimizer=tf.train.AdamOptimizer(),
-                 name='BasicLSTMModel'):
+                 name='BiLSTMWithAttentionModel'):
         self._static_features = static_features
         self._dynamic_features = dynamic_features
         self._time_steps = time_steps
@@ -261,13 +262,13 @@ class BiLSTMWithAttentionModel(object):
             self._attention_weight = tf.Variable(
                 tf.random_normal((self._static_features + self._dynamic_features, 1), ))
             self._attention_b = tf.Variable(tf.zeros(1), tf.float32)
-            # concat_x = tf.reshape(concat_x, (-1, self._static_features + self._dynamic_features))
+            concat_x = tf.reshape(concat_x, (-1, self._static_features + self._dynamic_features))
             weight = concat_x @ self._attention_weight + self._attention_b
-            # weight = tf.reshape(weight, (-1, self._time_steps))  # batch_size * time_steps
+            weight = tf.reshape(weight, (-1, self._time_steps))  # batch_size * time_steps
             # variable length softmax
             attention_weight = self._variable_length_softmax(weight, length)  # length是每个病人的实际天数
             # weighted average the hidden representation, shape of self._hidden is [batch_size, time_steps, lstm_size]
-            attention_weight = tf.expand_dims(tf.expand_dims(attention_weight, 2), -1)
+            attention_weight = tf.expand_dims(attention_weight, -1)
 
             self._hidden_rep = tf.reduce_sum(attention_weight * self._hidden_rep, 1)  # 最终隐藏层的表达
         else:
@@ -281,7 +282,7 @@ class BiLSTMWithAttentionModel(object):
         mask = tf.sequence_mask(length, self._time_steps)
         mask_value = tf.as_dtype(tf.float32).as_numpy_dtype(-np.inf) * tf.ones_like(logits)
         mask_logits = tf.where(mask, logits, mask_value)
-        return tf.nn.softmax(mask_logits)
+        return tf.nn.softmax(mask_logits)  # [None, time]
 
     def _length(self):
         mask = tf.sign(tf.reduce_max(tf.abs(self._dynamic_x), 2))
@@ -463,9 +464,9 @@ class ConvolutionModel(object):
 
     def fit(self, data_set: DataSet):
         self._sess.run(tf.global_variables_initializer())
-        self._sess.run(self._switch_train, feed_dict={self._static_x: data_set.static_feature,
-                                                      self._dynamic_x: data_set.dynamic_feature,
-                                                      self._y: data_set.labels})
+        self._sess.run(self._switch_train, feed_dict={self._static_x_batch: data_set.static_feature,
+                                                      self._dynamic_x_batch: data_set.dynamic_feature,
+                                                      self._y_batch: data_set.labels})
         for i in range(self._epochs):
             self._sess.run(self._train_op)
 
@@ -474,14 +475,111 @@ class ConvolutionModel(object):
                 print(loss)
 
     def predict(self, data_set: DataSet):
-        self._sess.run(self._switch_test, feed_dict={self._static_x: data_set.static_feature,
+        pred = self._sess.run(self._pred, feed_dict={self._static_x: data_set.static_feature,
                                                      self._dynamic_x: data_set.dynamic_feature,
                                                      self._y: data_set.labels})
-        pred = []
-        while True:
-            try:
-                pred.append(self._sess.run(pred))
-            except tf.errors.OutOfRangeError:
-                break
-        pred = np.concatenate(pred, 0)
+
         return pred
+
+
+class KnowledgeBaseModel(object):
+    def __init__(self, static_features, dynamic_features, time_steps, lstm_size, n_output, knowledge, batch_size=64, epochs=1000,
+                 output_n_epoch=10, optimizer=tf.train.AdamOptimizer(), name='KnowledgeBasedModel'):
+        self._static_features = static_features
+        self._dynamic_features = dynamic_features
+        self._time_steps = time_steps
+        self._lstm_size = lstm_size
+        self._n_output = n_output
+        self._batch_size = batch_size
+        self._epochs = epochs
+        self._output_n_epoch = output_n_epoch
+        self._optimizer = optimizer
+        self._name = name
+
+        with tf.variable_scope(self._name):
+            self._static_x = tf.placeholder(tf.float32, [None, self._static_features], 'static_input')
+            self._dynamic_x = tf.placeholder(tf.float32, [None, time_steps, self._dynamic_features], 'dynamic_input')
+            self._is_training = tf.placeholder(tf.bool, name='train_phase')
+            self._y = tf.placeholder(tf.float32, [None, n_output], 'label')
+            self._knowledge = tf.constant(knowledge, dtype=tf.float32)
+
+            self._hidden_layer()
+            self._attention_layer()
+            self._concat_layer()
+
+            self._output = tf.contrib.layers.fully_connected(self._hidden_rep, n_output,
+                                                             activation_fn=tf.identity)  # 输出层
+            self._pred = tf.nn.softmax(self._output, name="pred")
+
+            self._loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(self._y, self._output), name='loss')
+            self._train_op = optimizer.minimize(self._loss)
+
+            self._sess = tf.Session()  # 会话
+
+    def _hidden_layer(self):
+        self._lstm = {}
+        self._init_state = {}
+        for direction in ['forward', 'backward']:
+            self._lstm[direction] = tf.contrib.rnn.BasicLSTMCell(self._lstm_size)
+            self._init_state[direction] = self._lstm[direction].zero_state(tf.shape(self._dynamic_x)[0], tf.float32)
+
+        self._mask, self._len = self._length()
+        self._hidden, _ = tf.nn.bidirectional_dynamic_rnn(self._lstm['forward'],
+                                                          self._lstm['backward'],
+                                                          self._dynamic_x,
+                                                          sequence_length=self._len,
+                                                          initial_state_fw=self._init_state['forward'],
+                                                          initial_state_bw=self._init_state['backward'])
+        self._hidden_concat = tf.concat(self._hidden, axis=2)  # 沿着num_features的方向进行拼接
+
+    def _attention_layer(self):
+        map_weight = tf.Variable(xavier_init(self._dynamic_features, 1), dtype=tf.float32)
+        knowledge_map = self._dynamic_x * self._knowledge  # [None, time, f] * [f, ]
+        knowledge_map = tf.reshape(knowledge_map, [-1, self._dynamic_features])
+        attention_weight = knowledge_map @ map_weight
+        attention_weight = tf.reshape(attention_weight, [-1, self._time_steps])
+        attention_weight = self._variable_length_softmax(attention_weight, self._len)
+        attention_weight = tf.expand_dims(attention_weight, -1)
+
+        self._hidden_rep = tf.reduce_sum(attention_weight * self._hidden_concat, 1)  # 最终隐藏层的表达
+
+    def _concat_layer(self):
+        self._residual_output = residual_block(self._static_x, 200, {'is_training': self._is_training})
+        self._hidden_rep = tf.concat((self._hidden_rep, self._residual_output), 1)
+
+    def _variable_length_softmax(self, logits, length):
+        mask = tf.sequence_mask(length, self._time_steps)
+        mask_value = tf.as_dtype(tf.float32).as_numpy_dtype(-np.inf) * tf.ones_like(logits)
+        mask_logits = tf.where(mask, logits, mask_value)
+        return tf.nn.softmax(mask_logits)
+
+    def _length(self):
+        mask = tf.sign(tf.reduce_max(tf.abs(self._dynamic_x), 2))
+        length = tf.reduce_sum(mask, 1)
+        length = tf.cast(length, tf.int32)
+        return mask, length
+
+    def fit(self, data_set):
+        self._sess.run(tf.global_variables_initializer())
+        data_set.epoch_completed = 0
+
+        logged = set()
+        while data_set.epoch_completed < self._epochs:
+            static_feature, dynamic_feature, labels = data_set.next_batch(self._batch_size)
+            self._sess.run(self._train_op, feed_dict={self._static_x: static_feature,
+                                                      self._dynamic_x: dynamic_feature,
+                                                      self._is_training: True,
+                                                      self._y: labels})
+
+            if data_set.epoch_completed % self._output_n_epoch == 0 and data_set.epoch_completed not in logged:
+                logged.add(data_set.epoch_completed)
+                pred, loss = self._sess.run((self._pred, self._loss), feed_dict={self._static_x: static_feature,
+                                                                                 self._dynamic_x: dynamic_feature,
+                                                                                 self._is_training: True,
+                                                                                 self._y: labels})
+                print("loss of epoch {} is {}".format(data_set.epoch_completed, loss))
+
+    def predict(self, test_set):
+        return self._sess.run(self._pred, feed_dict={self._static_x: test_set.static_feature,
+                                                     self._dynamic_x: test_set.dynamic_feature,
+                                                     self._is_training: False})

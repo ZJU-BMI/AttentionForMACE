@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, recall_score, precision_score, roc_curve  # roc计算曲线
 from sklearn.model_selection import StratifiedShuffleSplit  # 创建随机数并打乱
 import tensorflow as tf
+import pandas as pd
 
 from data import read_data_lu, read_data_sun, DataSet
 from models import *
@@ -238,8 +239,38 @@ def conv_sru_model_experiments(result_file):
     return model_experiments(model, data_set, result_file)
 
 
+def knowledge_model_experiments(result_file):
+    if ExperimentSetup.data_source == 'lu':
+        data_set = read_data_lu()
+    else:
+        data_set = read_data_sun()
+    static_feature = data_set.static_feature
+    dynamic_feature = data_set.dynamic_feature
+    labels = data_set.labels
+
+    static_n_features = static_feature.shape[1]
+    dynamic_n_features = dynamic_feature.shape[2]
+    time_steps = dynamic_feature.shape[1]
+    n_output = labels.shape[1]
+
+    knowledge_ = pd.read_csv('resources/knowledge.csv', encoding='gbk', index_col=0).fillna(0)
+    knowledge = np.sum(knowledge_.as_matrix(), 1)
+
+    model = KnowledgeBaseModel(static_n_features,
+                               dynamic_n_features,
+                               time_steps,
+                               ExperimentSetup.lstm_size,
+                               n_output,
+                               knowledge=knowledge,
+                               batch_size=ExperimentSetup.batch_size,
+                               epochs=10,
+                               output_n_epoch=ExperimentSetup.output_n_epochs)
+    return model_experiments(model, data_set, result_file)
+
+
 if __name__ == '__main__':
     # basic_lstm_model_experiments('resources/save/basic_lstm.csv')
     # lstm_with_static_feature_model_experiments("resources/save/lstm_with_static.csv")
     # bidirectional_lstm_model_experiments('resources/save/bidirectional_lstm.csv')
-    conv_sru_model_experiments('resources/save/conv_sru_model.csv')
+    # conv_sru_model_experiments('resources/save/conv_sru_model.csv')
+    knowledge_model_experiments('resources/save/knowledge.csv')
