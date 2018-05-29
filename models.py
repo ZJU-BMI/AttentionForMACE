@@ -223,9 +223,9 @@ class BiLSTMWithAttentionModel(object):
 
             self._output = tf.contrib.layers.fully_connected(self._hidden_rep, n_output,
                                                              activation_fn=tf.identity)  # 输出层
-            self._pred = tf.nn.softmax(self._output, name="pred")
+            self._pred = tf.nn.sigmoid(self._output, name="pred")
 
-            self._loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(self._y, self._output), name='loss')
+            self._loss = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(self._y, self._output), name='loss')
             self._train_op = optimizer.minimize(self._loss)
 
             self._sess = tf.Session()  # 会话
@@ -326,12 +326,12 @@ class BiLSTMWithAttentionModel(object):
                                                              self._is_train: True,
                                                              self._y: labels})
                 y_score = self.predict(test_set)
-                auc_qx = sklearn.metrics.roc_auc_score(test_set.labels[:, 1], y_score[:, 1])
-                auc_cx = sklearn.metrics.roc_auc_score(test_set.labels[:, 2], y_score[:, 2])
-                auc_both = sklearn.metrics.roc_auc_score(test_set.labels[:, 3], y_score[:, 3])
-                print("{}\t{}\t{}\t{}\t{}".format(auc_qx, auc_cx, auc_both, data_set.epoch_completed, loss))
-                # auc = sklearn.metrics.roc_auc_score(test_set.labels[:, 1], y_score[:, 1])
-                # print("{}\t{}\t{}".format(auc, data_set.epoch_completed, loss))
+                # auc_qx = sklearn.metrics.roc_auc_score(test_set.labels[:, 1], y_score[:, 1])
+                # auc_cx = sklearn.metrics.roc_auc_score(test_set.labels[:, 2], y_score[:, 2])
+                # auc_both = sklearn.metrics.roc_auc_score(test_set.labels[:, 3], y_score[:, 3])
+                # print("{}\t{}\t{}\t{}\t{}".format(auc_qx, auc_cx, auc_both, data_set.epoch_completed, loss))
+                auc = sklearn.metrics.roc_auc_score(test_set.labels, y_score)
+                print("{}\t{}\t{}".format(auc, data_set.epoch_completed, loss))
         self.save(epoch=data_set.epoch_completed)
 
     def predict(self, data_set):

@@ -18,8 +18,8 @@ class ExperimentSetup(object):
     random_state = 1
 
     lstm_size = 200
-    learning_rate = 0.001
-    epochs = 5
+    learning_rate = 0.0001
+    epochs = 20
     output_n_epochs = 1
     data_source = "lu"
 
@@ -61,7 +61,7 @@ def evaluate(tol_label, tol_pred, result_file='resources/save/evaluation_result.
             # f_writer.writerow(fpr)
             # f_writer.writerow(tpr)
         # f_writer.writerow([accuracy])
-        f_writer.writerow(auc)
+        f_writer.writerow([auc])
         # f_writer.writerow([precision])
         # f_writer.writerow([recall])
         # f_writer.writerow([f_score])
@@ -239,6 +239,8 @@ if __name__ == '__main__':
     for i in range(10):
         print("res_bi-lstm_att")
         bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', True, True)
+        print("bi-lstm_att")
+        bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', True, False)
         print("res_bi-lstm")
         bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', False, True)
         print("bi-lstm")

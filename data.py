@@ -144,31 +144,32 @@ def read_data_lu():
             max_length = one_dynamic_feature.shape[0]
         dynamic_feature.append(one_dynamic_feature)
 
-    dynamic_feature = list(map(lambda x: np.pad(x, ((0, max_length-x.shape[0]), (0, 0)), 'constant', constant_values=0),
-                               dynamic_feature))
+    dynamic_feature = list(
+        map(lambda x: np.pad(x, ((0, max_length - x.shape[0]), (0, 0)), 'constant', constant_values=0),
+            dynamic_feature))
     dynamic_feature = np.stack(dynamic_feature)
 
     label_set = pd.read_csv('resources/dataset_addmission.csv', encoding='gbk')
     labels = []
     for patient_id in patient_id_list:
         label = label_set.loc[label_set['TraceNo.'] == patient_id].iloc[:, 9:11].as_matrix()
-        if np.all(label == [[0, 0]]):  # 无缺血，出血
-            label = [1, 0, 0, 0]
-        elif np.all(label == [[1, 0]]):  # 缺血
-            label = [0, 1, 0, 0]
-        elif np.all(label == [[0, 1]]):  # 出血
-            label = [0, 0, 1, 0]
-        else:
-            label = [0, 0, 0, 1]  # 缺血，出血
-
         # if np.all(label == [[0, 0]]):  # 无缺血，出血
-        #     label = [1, 0]
+        #     label = [1, 0, 0, 0]
         # elif np.all(label == [[1, 0]]):  # 缺血
-        #     label = [1, 0]
+        #     label = [0, 1, 0, 0]
         # elif np.all(label == [[0, 1]]):  # 出血
-        #     label = [0, 1]
+        #     label = [0, 0, 1, 0]
         # else:
-        #     label = [0, 1]  # 缺血，出血
+        #     label = [0, 0, 0, 1]  # 缺血，出血
+
+        if np.all(label == [[0, 0]]):  # 无缺血，出血
+            label = [1, 0]
+        elif np.all(label == [[1, 0]]):  # 缺血
+            label = [0, 1]
+        elif np.all(label == [[0, 1]]):  # 出血
+            label = [1, 0]
+        else:
+            label = [0, 1]  # 缺血，出血
 
         #     if np.all(label == [[0, 0]]):
         #         label = [1, 0]
@@ -176,6 +177,7 @@ def read_data_lu():
         #         label = [0, 1]
         labels.append(label)
     labels = np.array(labels)
+    labels = np.expand_dims(labels[:, 1], 1)
     return DataSet(static_feature, dynamic_feature, labels)
 
 
