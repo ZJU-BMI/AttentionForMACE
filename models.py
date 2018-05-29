@@ -310,7 +310,8 @@ class BiLSTMWithAttentionModel(object):
         data_set.epoch_completed = 0
 
         logged = set()
-        print("auc_qx   auc_cx  auc_both    epoch   loss")
+
+        print("auc_qx\tauc_cx\tauc_both\tepoch\tloss")
         while data_set.epoch_completed < self._epochs:
             static_feature, dynamic_feature, labels = data_set.next_batch(self._batch_size)
             self._sess.run(self._train_op, feed_dict={self._static_x: static_feature,
@@ -329,6 +330,8 @@ class BiLSTMWithAttentionModel(object):
                 auc_cx = sklearn.metrics.roc_auc_score(test_set.labels[:, 2], y_score[:, 2])
                 auc_both = sklearn.metrics.roc_auc_score(test_set.labels[:, 3], y_score[:, 3])
                 print("{}\t{}\t{}\t{}\t{}".format(auc_qx, auc_cx, auc_both, data_set.epoch_completed, loss))
+                # auc = sklearn.metrics.roc_auc_score(test_set.labels[:, 1], y_score[:, 1])
+                # print("{}\t{}\t{}".format(auc, data_set.epoch_completed, loss))
         self.save(epoch=data_set.epoch_completed)
 
     def predict(self, data_set):

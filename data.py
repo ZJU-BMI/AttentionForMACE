@@ -22,7 +22,7 @@ class DataSet(object):
             self._shuffle()
         self._batch_completed += 1
         start = self._index_in_epoch
-        if start + batch_size > self.num_examples:
+        if start + batch_size >= self.num_examples:
             self._epoch_completed += 1
             static_rest_part = self._static_feature[start:self._num_examples]
             dynamic_rest_part = self._dynamic_feature[start:self._num_examples]
@@ -98,7 +98,8 @@ def read_data_sun():
         static_features.append(static_feature)
 
         for j in range(7):
-            dynamic_set = pd.read_csv("resources/treatment_5_fold/7Day/d{0}d{1}.csv".format(i, j), index_col=0, encoding="utf-8")
+            dynamic_set = pd.read_csv("resources/treatment_5_fold/7Day/d{0}d{1}.csv".format(i, j), index_col=0,
+                                      encoding="utf-8")
             dynamic_feature = dynamic_set.as_matrix()
             dynamic_features.append(dynamic_feature)
 
@@ -159,10 +160,20 @@ def read_data_lu():
             label = [0, 0, 1, 0]
         else:
             label = [0, 0, 0, 1]  # 缺血，出血
-    #     if np.all(label == [[0, 0]]):
-    #         label = [1, 0]
-    #     else:
-    #         label = [0, 1]
+
+        # if np.all(label == [[0, 0]]):  # 无缺血，出血
+        #     label = [1, 0]
+        # elif np.all(label == [[1, 0]]):  # 缺血
+        #     label = [1, 0]
+        # elif np.all(label == [[0, 1]]):  # 出血
+        #     label = [0, 1]
+        # else:
+        #     label = [0, 1]  # 缺血，出血
+
+        #     if np.all(label == [[0, 0]]):
+        #         label = [1, 0]
+        #     else:
+        #         label = [0, 1]
         labels.append(label)
     labels = np.array(labels)
     return DataSet(static_feature, dynamic_feature, labels)

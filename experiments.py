@@ -18,8 +18,8 @@ class ExperimentSetup(object):
     random_state = 1
 
     lstm_size = 200
-    learning_rate = 0.0001
-    epochs = 30
+    learning_rate = 0.001
+    epochs = 5
     output_n_epochs = 1
     data_source = "lu"
 
@@ -38,28 +38,35 @@ def evaluate(tol_label, tol_pred, result_file='resources/save/evaluation_result.
     y_true = np.argmax(tol_label, axis=1)
     y_pred = np.argmax(tol_pred, axis=1)
 
-    accuracy = accuracy_score(y_true, y_pred)
+    # accuracy = accuracy_score(y_true, y_pred)
     auc = roc_auc_score(tol_label, tol_pred, average=None)
     # fpr, tpr, thresholds = roc_curve(y_true, y_score)
-    precision = precision_score(y_true, y_pred, average=None)
-    recall = recall_score(y_true, y_pred, average=None)
-    f_score = f1_score(y_true, y_pred, average=None)
+    # precision = precision_score(y_true, y_pred, average=None)
+    # recall = recall_score(y_true, y_pred, average=None)
+    # f_score = f1_score(y_true, y_pred, average=None)
+
+    # auc = roc_auc_score(tol_label[:, 1], tol_pred[:, 1])
+    # # fpr, tpr, thresholds = roc_curve(y_true, y_score)
+    # precision = precision_score(y_true, y_pred)
+    # recall = recall_score(y_true, y_pred)
+    # f_score = f1_score(y_true, y_pred)
+
     with open(result_file, 'a', newline='') as csv_file:
         f_writer = csv.writer(csv_file, delimiter=',')
-        for i in range(classes):
-            y_score = tol_pred[:, i]
-            y_true = tol_label[:, i]
-            fpr, tpr, thresholds = roc_curve(y_true, y_score)
-            f_writer.writerow('false positive rate and true positive rate of class {}'.format(i))
-            f_writer.writerow(fpr)
-            f_writer.writerow(tpr)
-        f_writer.writerow([accuracy])
+        # for i in range(classes):
+        #     y_score = tol_pred[:, i]
+        #     y_true = tol_label[:, i]
+        #     fpr, tpr, thresholds = roc_curve(y_true, y_score)
+            # f_writer.writerow('false positive rate and true positive rate of class {}'.format(i))
+            # f_writer.writerow(fpr)
+            # f_writer.writerow(tpr)
+        # f_writer.writerow([accuracy])
         f_writer.writerow(auc)
-        f_writer.writerow(precision)
-        f_writer.writerow(recall)
-        f_writer.writerow(f_score)
-        f_writer.writerow([])
-    return accuracy, auc, precision, recall, f_score
+        # f_writer.writerow([precision])
+        # f_writer.writerow([recall])
+        # f_writer.writerow([f_score])
+        # f_writer.writerow([])
+    # return accuracy, auc, precision, recall, f_score
 
 
 def model_experiments(model, data_set, result_file):
@@ -84,7 +91,7 @@ def model_experiments(model, data_set, result_file):
         test_dynamic = dynamic_feature[test_idx]
         test_y = labels[test_idx]
         test_set = DataSet(test_static, test_dynamic, test_y)
-
+        print("learning_rate = ", ExperimentSetup.learning_rate)
         model.fit(train_set, test_set)
 
         y_score = model.predict(test_set)
@@ -93,8 +100,12 @@ def model_experiments(model, data_set, result_file):
         print("Cross validation: {} of {}".format(i, ExperimentSetup.kfold),
               time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
         i += 1
+        evaluate(test_y, y_score, result_file)
 
     model.close()
+    with open(result_file, 'a', newline='') as csv_file:
+        f_writer = csv.writer(csv_file, delimiter=',')
+        f_writer.writerow([])
     return evaluate(tol_label, tol_pred, result_file)
 
 
@@ -169,7 +180,10 @@ def bi_lstm_attention_model_experiments(result_file, use_attention, use_resnet):
                                      optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
                                      epochs=ExperimentSetup.epochs,
                                      output_n_epoch=ExperimentSetup.output_n_epochs)
-    return model_experiments(model, data_set, result_file)
+    model_experiments(model, data_set, result_file)
+    with open(result_file, 'a', newline='') as csv_file:
+        f_writer = csv.writer(csv_file, delimiter=',')
+        f_writer.writerow([])
 
 
 def resnet_model_experiments(result_file):
@@ -222,7 +236,7 @@ if __name__ == '__main__':
     # basic_lstm_model_experiments('resources/save/basic_lstm.csv')
     # lstm_with_static_feature_model_experiments("resources/save/lstm_with_static.csv")
     # bidirectional_lstm_model_experiments('resources/save/bidirectional_lstm.csv')
-    for i in range(1):
+    for i in range(10):
         print("res_bi-lstm_att")
         bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', True, True)
         print("res_bi-lstm")
