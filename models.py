@@ -311,7 +311,7 @@ class BiLSTMWithAttentionModel(object):
 
         logged = set()
 
-        print("auc_qx\tauc_cx\tauc_both\tepoch\tloss")
+        print("auc_qx\tepoch\tloss")
         while data_set.epoch_completed < self._epochs:
             static_feature, dynamic_feature, labels = data_set.next_batch(self._batch_size)
             self._sess.run(self._train_op, feed_dict={self._static_x: static_feature,

@@ -1,4 +1,5 @@
 import csv
+import sklearn
 import time
 
 import numpy as np
@@ -121,8 +122,7 @@ def model_experiments(model, data_set, result_file):
     static_feature = data_set.static_feature
     dynamic_feature = data_set.dynamic_feature
     labels = data_set.labels
-    split = StratifiedShuffleSplit(ExperimentSetup.kfold, ExperimentSetup.test_size, ExperimentSetup.train_size) \
-        .split(static_feature, labels)
+    kf = sklearn.model_selection.StratifiedKFold(n_splits=ExperimentSetup.kfold, shuffle=False)
 
     n_output = labels.shape[1]  # classes
 
@@ -130,7 +130,7 @@ def model_experiments(model, data_set, result_file):
     tol_pred = np.zeros(shape=(0, n_output))
     tol_label = np.zeros(shape=(0, n_output), dtype=np.int32)
     i = 1
-    for train_idx, test_idx in split:
+    for train_idx, test_idx in kf.split(X=data_set.dynamic_feature, y=data_set.labels.reshape(-1)):
         train_static = static_feature[train_idx]
         train_dynamic = dynamic_feature[train_idx]
         train_y = labels[train_idx]
@@ -290,10 +290,10 @@ if __name__ == '__main__':
     # bidirectional_lstm_model_experiments('resources/save/bidirectional_lstm.csv')
     for i_times in range(10):
         print("res_bi-lstm_att")
-        bi_lstm_attention_model_experiments('result/LAR-' + str(i_times+1), True, True)
+        bi_lstm_attention_model_experiments('result/LAR2-' + str(i_times+1), True, True)
         print("bi-lstm_att")
-        bi_lstm_attention_model_experiments('result/LA-' + str(i_times+1), True, False)
+        bi_lstm_attention_model_experiments('result/LA2-' + str(i_times+1), True, False)
         print("res_bi-lstm")
-        bi_lstm_attention_model_experiments('result/LR-' + str(i_times+1), False, True)
+        bi_lstm_attention_model_experiments('result/LR2-' + str(i_times+1), False, True)
         print("bi-lstm")
-        bi_lstm_attention_model_experiments('result/L-' + str(i_times+1), False, False)
+        bi_lstm_attention_model_experiments('result/L2-' + str(i_times+1), False, False)
