@@ -2,6 +2,7 @@ import csv
 import time
 
 import numpy as np
+import xlwt
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, recall_score, precision_score, roc_curve  # roc计算曲线
 from sklearn.model_selection import StratifiedShuffleSplit  # 创建随机数并打乱
 import tensorflow as tf
@@ -24,49 +25,96 @@ class ExperimentSetup(object):
     data_source = "lu"
 
 
-def evaluate(tol_label, tol_pred, result_file='resources/save/evaluation_result.csv'):
-    """对模型的预测性能进行评估
-
-    :param tol_label: 测试样本的真实标签
-    :param tol_pred: 测试样本的预测概率分布
-    :param result_file: 结果保存的文件
-    :return: 正确率，AUC，精度，召回率， F1值
+# def evaluate(tol_label, tol_pred, result_file='resources/save/evaluation_result.csv'):
+#     """对模型的预测性能进行评估
+#
+#     :param tol_label: 测试样本的真实标签
+#     :param tol_pred: 测试样本的预测概率分布
+#     :param result_file: 结果保存的文件
+#     :return: 正确率，AUC，精度，召回率， F1值
+#     """
+#     assert tol_label.shape == tol_pred.shape
+#     classes = tol_label.shape[1]
+#
+#     y_true = np.argmax(tol_label, axis=1)
+#     y_pred = np.argmax(tol_pred, axis=1)
+#
+#     # accuracy = accuracy_score(y_true, y_pred)
+#     auc = roc_auc_score(tol_label, tol_pred, average=None)
+#     # fpr, tpr, thresholds = roc_curve(y_true, y_score)
+#     # precision = precision_score(y_true, y_pred, average=None)
+#     # recall = recall_score(y_true, y_pred, average=None)
+#     # f_score = f1_score(y_true, y_pred, average=None)
+#
+#     # auc = roc_auc_score(tol_label[:, 1], tol_pred[:, 1])
+#     # # fpr, tpr, thresholds = roc_curve(y_true, y_score)
+#     # precision = precision_score(y_true, y_pred)
+#     # recall = recall_score(y_true, y_pred)
+#     # f_score = f1_score(y_true, y_pred)
+#
+#     with open(result_file, 'a', newline='') as csv_file:
+#         f_writer = csv.writer(csv_file, delimiter=',')
+#         # for i in range(classes):
+#         #     y_score = tol_pred[:, i]
+#         #     y_true = tol_label[:, i]
+#         #     fpr, tpr, thresholds = roc_curve(y_true, y_score)
+#         # f_writer.writerow('false positive rate and true positive rate of class {}'.format(i))
+#         # f_writer.writerow(fpr)
+#         # f_writer.writerow(tpr)
+#         # f_writer.writerow([accuracy])
+#         f_writer.writerow([auc])
+#         # f_writer.writerow([precision])
+#         # f_writer.writerow([recall])
+#         # f_writer.writerow([f_score])
+#         # f_writer.writerow([])
+#     # return accuracy, auc, precision, recall, f_score
+def evaluate(test_index, y_label, y_score, file_name):
     """
-    assert tol_label.shape == tol_pred.shape
-    classes = tol_label.shape[1]
+    对模型的预测性能进行评估
+    :param test_index
+    :param y_label: 测试样本的真实标签 true label of test-set
+    :param y_score: 测试样本的预测概率 predicted probability of test-set
+    :param file_name: 输出文件路径    path of output file
+    """
+    # TODO 全部算完再写入
+    wb = xlwt.Workbook(file_name + '.xls')
+    table = wb.add_sheet('Sheet1')
+    table_title = ["test_index", "label", "prob", "pre", " ", "fpr", "tpr", "thresholds", " ",
+                   "acc", "auc", "recall", "precision", "f1-score", "threshold"]
+    for i in range(len(table_title)):
+        table.write(0, i, table_title[i])
 
-    y_true = np.argmax(tol_label, axis=1)
-    y_pred = np.argmax(tol_pred, axis=1)
+    auc = roc_auc_score(y_label, y_score)
 
-    # accuracy = accuracy_score(y_true, y_pred)
-    auc = roc_auc_score(tol_label, tol_pred, average=None)
-    # fpr, tpr, thresholds = roc_curve(y_true, y_score)
-    # precision = precision_score(y_true, y_pred, average=None)
-    # recall = recall_score(y_true, y_pred, average=None)
-    # f_score = f1_score(y_true, y_pred, average=None)
+    fpr, tpr, thresholds = roc_curve(y_label, y_score, pos_label=1)
+    threshold = thresholds[np.argmax(tpr - fpr)]
 
-    # auc = roc_auc_score(tol_label[:, 1], tol_pred[:, 1])
-    # # fpr, tpr, thresholds = roc_curve(y_true, y_score)
-    # precision = precision_score(y_true, y_pred)
-    # recall = recall_score(y_true, y_pred)
-    # f_score = f1_score(y_true, y_pred)
+    for i in range(len(fpr)):
+        table.write(i + 1, table_title.index("fpr"), fpr[i])
+        table.write(i + 1, table_title.index("tpr"), tpr[i])
+        table.write(i + 1, table_title.index("thresholds"), float(thresholds[i]))
+    table.write(1, table_title.index("threshold"), float(threshold))
 
-    with open(result_file, 'a', newline='') as csv_file:
-        f_writer = csv.writer(csv_file, delimiter=',')
-        # for i in range(classes):
-        #     y_score = tol_pred[:, i]
-        #     y_true = tol_label[:, i]
-        #     fpr, tpr, thresholds = roc_curve(y_true, y_score)
-            # f_writer.writerow('false positive rate and true positive rate of class {}'.format(i))
-            # f_writer.writerow(fpr)
-            # f_writer.writerow(tpr)
-        # f_writer.writerow([accuracy])
-        f_writer.writerow([auc])
-        # f_writer.writerow([precision])
-        # f_writer.writerow([recall])
-        # f_writer.writerow([f_score])
-        # f_writer.writerow([])
-    # return accuracy, auc, precision, recall, f_score
+    y_pred_label = (y_score >= threshold) * 1
+    acc = accuracy_score(y_label, y_pred_label)
+    recall = recall_score(y_label, y_pred_label)
+    precision = precision_score(y_label, y_pred_label)
+    f1 = f1_score(y_label, y_pred_label)
+
+    for i in range(len(test_index)):
+        table.write(i + 1, table_title.index("test_index"), int(test_index[i]))
+        table.write(i + 1, table_title.index("label"), int(y_label[i]))
+        table.write(i + 1, table_title.index("prob"), float(y_score[i]))
+        table.write(i + 1, table_title.index("pre"), int(y_pred_label[i]))
+
+    # write metrics
+    table.write(1, table_title.index("auc"), float(auc))
+    table.write(1, table_title.index("acc"), float(acc))
+    table.write(1, table_title.index("recall"), float(recall))
+    table.write(1, table_title.index("precision"), float(precision))
+    table.write(1, table_title.index("f1-score"), float(f1))
+
+    wb.save(file_name + ".xls")
 
 
 def model_experiments(model, data_set, result_file):
@@ -78,6 +126,7 @@ def model_experiments(model, data_set, result_file):
 
     n_output = labels.shape[1]  # classes
 
+    tol_test_idx = np.zeros(0, dtype=np.int32)
     tol_pred = np.zeros(shape=(0, n_output))
     tol_label = np.zeros(shape=(0, n_output), dtype=np.int32)
     i = 1
@@ -95,18 +144,20 @@ def model_experiments(model, data_set, result_file):
         model.fit(train_set, test_set)
 
         y_score = model.predict(test_set)
+        tol_test_idx = np.concatenate((tol_test_idx, test_idx))
         tol_pred = np.vstack((tol_pred, y_score))
         tol_label = np.vstack((tol_label, test_y))
         print("Cross validation: {} of {}".format(i, ExperimentSetup.kfold),
               time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
         i += 1
-        evaluate(test_y, y_score, result_file)
+        # evaluate(test_y, y_score, result_file)
 
     model.close()
-    with open(result_file, 'a', newline='') as csv_file:
-        f_writer = csv.writer(csv_file, delimiter=',')
-        f_writer.writerow([])
-    return evaluate(tol_label, tol_pred, result_file)
+    # with open(result_file, 'a', newline='') as csv_file:
+    #     f_writer = csv.writer(csv_file, delimiter=',')
+    #     f_writer.writerow([])
+    # return evaluate(tol_label, tol_pred, result_file)
+    return evaluate(tol_test_idx, tol_label, tol_pred, result_file)
 
 
 def basic_lstm_model_experiments(result_file):
@@ -180,10 +231,11 @@ def bi_lstm_attention_model_experiments(result_file, use_attention, use_resnet):
                                      optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
                                      epochs=ExperimentSetup.epochs,
                                      output_n_epoch=ExperimentSetup.output_n_epochs)
+    # model_experiments(model, data_set, result_file)
+    # with open(result_file, 'a', newline='') as csv_file:
+    #     f_writer = csv.writer(csv_file, delimiter=',')
+    #     f_writer.writerow([])
     model_experiments(model, data_set, result_file)
-    with open(result_file, 'a', newline='') as csv_file:
-        f_writer = csv.writer(csv_file, delimiter=',')
-        f_writer.writerow([])
 
 
 def resnet_model_experiments(result_file):
@@ -236,12 +288,12 @@ if __name__ == '__main__':
     # basic_lstm_model_experiments('resources/save/basic_lstm.csv')
     # lstm_with_static_feature_model_experiments("resources/save/lstm_with_static.csv")
     # bidirectional_lstm_model_experiments('resources/save/bidirectional_lstm.csv')
-    for i in range(10):
+    for i_times in range(10):
         print("res_bi-lstm_att")
-        bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', True, True)
+        bi_lstm_attention_model_experiments('result/LAR-' + str(i_times+1), True, True)
         print("bi-lstm_att")
-        bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', True, False)
+        bi_lstm_attention_model_experiments('result/LA-' + str(i_times+1), True, False)
         print("res_bi-lstm")
-        bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', False, True)
+        bi_lstm_attention_model_experiments('result/LR-' + str(i_times+1), False, True)
         print("bi-lstm")
-        bi_lstm_attention_model_experiments('resources/save_model/BLAR.csv', False, False)
+        bi_lstm_attention_model_experiments('result/L-' + str(i_times+1), False, False)
