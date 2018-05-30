@@ -234,7 +234,7 @@ def conv_sru_model_experiments(result_file):
                              ExperimentSetup.lstm_size,
                              n_output,
                              batch_size=ExperimentSetup.batch_size,
-                             epochs=2,
+                             epochs=ExperimentSetup.epochs,
                              output_n_epochs=ExperimentSetup.output_n_epochs)
     return model_experiments(model, data_set, result_file)
 
@@ -263,7 +263,7 @@ def knowledge_model_experiments(result_file):
                                n_output,
                                knowledge=knowledge,
                                batch_size=ExperimentSetup.batch_size,
-                               epochs=10,
+                               epochs=ExperimentSetup.epochs,
                                output_n_epoch=ExperimentSetup.output_n_epochs)
     return model_experiments(model, data_set, result_file)
 
@@ -272,5 +272,5 @@ if __name__ == '__main__':
     # basic_lstm_model_experiments('resources/save/basic_lstm.csv')
     # lstm_with_static_feature_model_experiments("resources/save/lstm_with_static.csv")
     # bidirectional_lstm_model_experiments('resources/save/bidirectional_lstm.csv')
-    # conv_sru_model_experiments('resources/save/conv_sru_model.csv')
-    knowledge_model_experiments('resources/save/knowledge.csv')
+    conv_sru_model_experiments('resources/save/conv_sru_model.csv')
+    # knowledge_model_experiments('resources/save/knowledge.csv')

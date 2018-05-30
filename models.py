@@ -431,9 +431,13 @@ class ConvolutionModel(object):
     def _recurrent_layer(self):
         with tf.variable_scope('recurrent'):
             self._rnn_weight = tf.Variable(xavier_init(self._hidden_size, 3 * self._hidden_size), dtype=tf.float32)
-            self._rnn_input = self._conv_hidden @ self._rnn_weight
-            self._sru_cell = SRUCell(self._hidden_size)
-            self._zero_state = self._sru_cell.zero_state(self._batch_size, tf.float32)
+            self._conv_hidden_a = tf.reshape(self._conv_hidden, [-1, self._hidden_size])  # reshape to tensor mut
+            self._rnn_input = self._conv_hidden_a @ self._rnn_weight
+            self._rnn_input = tf.reshape(self._rnn_input, [-1, self._time_steps, 3 * self._hidden_size])
+            self._rnn_input = tf.concat((self._conv_hidden, self._rnn_input), -1)
+
+            self._sru_cell = MySRU(self._hidden_size)
+            self._zero_state = self._sru_cell.zero_state(tf.shape(self._dynamic_x_batch)[0], tf.float32)
 
             mask, length = self._length()
             self._rnn_hidden, _ = tf.nn.dynamic_rnn(cell=self._sru_cell,
@@ -464,9 +468,9 @@ class ConvolutionModel(object):
 
     def fit(self, data_set: DataSet):
         self._sess.run(tf.global_variables_initializer())
-        self._sess.run(self._switch_train, feed_dict={self._static_x_batch: data_set.static_feature,
-                                                      self._dynamic_x_batch: data_set.dynamic_feature,
-                                                      self._y_batch: data_set.labels})
+        self._sess.run(self._switch_train, feed_dict={self._static_x: data_set.static_feature,
+                                                      self._dynamic_x: data_set.dynamic_feature,
+                                                      self._y: data_set.labels})
         for i in range(self._epochs):
             self._sess.run(self._train_op)
 
@@ -475,9 +479,9 @@ class ConvolutionModel(object):
                 print(loss)
 
     def predict(self, data_set: DataSet):
-        pred = self._sess.run(self._pred, feed_dict={self._static_x: data_set.static_feature,
-                                                     self._dynamic_x: data_set.dynamic_feature,
-                                                     self._y: data_set.labels})
+        pred = self._sess.run(self._pred, feed_dict={self._static_x_batch: data_set.static_feature,
+                                                     self._dynamic_x_batch: data_set.dynamic_feature,
+                                                     self._y_batch: data_set.labels})
 
         return pred
 

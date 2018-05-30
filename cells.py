@@ -78,11 +78,11 @@ class MySRU(tf.contrib.rnn.RNNCell):
         else:
             c, h = tf.split(value=state, num_or_size_splits=2, axis=1)
 
-        i, f, r = tf.split(value=inputs, num_or_size_splits=3, axis=1)
+        i, i_tiled, f, r = tf.split(value=inputs, num_or_size_splits=4, axis=1)
         f = tf.nn.sigmoid(f + self._forget_bias)
         r = tf.nn.sigmoid(r + self._reset_bias)
-        new_c = f * c + (1 - f) * i
-        new_h = r * self._activation(new_c) + (1 - r) * inputs
+        new_c = f * c + (1 - f) * i_tiled
+        new_h = r * self._activation(new_c) + (1 - r) * i
 
         if self._state_is_tuple:
             new_state = tf.contrib.rnn.LSTMStateTuple(new_c, new_h)
