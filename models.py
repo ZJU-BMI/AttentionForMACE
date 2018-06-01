@@ -199,7 +199,7 @@ class LSTMWithStaticFeature(object):
 
 class BiLSTMWithAttentionModel(object):
     def __init__(self, static_features, dynamic_features, time_steps, lstm_size, n_output, use_attention=True,
-                 use_resnet=True, batch_size=64, epochs=1000, output_n_epoch=10, optimizer=tf.train.AdamOptimizer(),
+                 use_mlp=True, batch_size=64, epochs=1000, output_n_epoch=10, optimizer=tf.train.AdamOptimizer(),
                  name='BasicLSTMModel'):
         self._static_features = static_features
         self._dynamic_features = dynamic_features
@@ -211,7 +211,7 @@ class BiLSTMWithAttentionModel(object):
         self._lstm_size = lstm_size
 
         self._use_attention = use_attention
-        self._use_resnet = use_resnet
+        self._use_mlp = use_mlp
 
         with tf.variable_scope(self._name):
             self._static_x = tf.placeholder(tf.float32, [None, self._static_features], 'static_input')
@@ -280,7 +280,8 @@ class BiLSTMWithAttentionModel(object):
         if self._use_attention:
             static_trans = tf.nn.sigmoid(self._static_x)
             static_trans = tf.expand_dims(static_trans, 2)
-            dynamic_trans = tf.nn.sigmoid(tf.contrib.layers.fully_connected(self._dynamic_x, self._static_features))
+            dynamic_trans = tf.contrib.layers.fully_connected(self._dynamic_x, self._static_features,
+                                                              activation_fn=tf.nn.sigmoid)
             attention_logits = tf.reshape(tf.matmul(dynamic_trans, static_trans), [-1, self._time_steps])
             self._attention_weight = self._variable_length_softmax(attention_logits, length)
             self._hidden_rep = tf.reshape(tf.matmul(tf.reshape(self._attention_weight, [-1, 1, self._time_steps]),
@@ -289,9 +290,9 @@ class BiLSTMWithAttentionModel(object):
             self._hidden_rep = tf.reduce_sum(self._hidden_concat, 1) / tf.tile(tf.reduce_sum(mask, 1, keep_dims=True),
                                                                                (1, self._lstm_size * 2))
 
-        if self._use_resnet:
-            self._residual_output = residual_block(self._static_x, 200, {'is_training': self._is_train})
-            self._hidden_rep = tf.concat((self._hidden_rep, self._residual_output), 1)
+        if self._use_mlp:
+            self._mlp_output = tf.contrib.layers.fully_connected(self._static_x, 200, activation_fn=tf.nn.relu)
+            self._hidden_rep = tf.concat((self._hidden_rep, self._mlp_output), 1)
 
     def _variable_length_softmax(self, logits, length):
         mask = tf.sequence_mask(length, self._time_steps)
@@ -371,24 +372,26 @@ class ResNet(object):
 
             normalizer_params = {'is_training': self._is_training}
             self._out = residual_block(self._static_x, 200, normalizer_params)
-            self._out = residual_block(self._out, 200, normalizer_params)
-            self._out = residual_block(self._out, 200, normalizer_params)
-            self._out = residual_block(self._out, 200, normalizer_params)
+            # self._out = residual_block(self._out, 200, normalizer_params)
+            # self._out = residual_block(self._out, 200, normalizer_params)
+            # self._out = residual_block(self._out, 200, normalizer_params)
 
             self._output = tf.contrib.layers.fully_connected(self._out, n_output,
                                                              activation_fn=tf.identity)
-            self._pred = tf.nn.softmax(self._output, name="pred")
+            self._pred = tf.nn.sigmoid(self._output, name="pred")
 
-            self._loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(self._y, self._output), name='loss')
+            self._loss = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(self._y, self._output), name='loss')
             self._train_op = optimizer.minimize(self._loss)
 
             self._sess = tf.Session()
 
-    def fit(self, data_set):
+    def fit(self, data_set, test_set):
         self._sess.run(tf.global_variables_initializer())
         data_set.epoch_completed = 0
 
         logged = set()
+
+        print("auc_qx\tepoch\tloss")
         while data_set.epoch_completed < self._epochs:
             static_feature, _, labels = data_set.next_batch(self._batch_size)
             self._sess.run(self._train_op, feed_dict={self._static_x: static_feature,
@@ -397,11 +400,93 @@ class ResNet(object):
 
             if data_set.epoch_completed % self._output_n_epochs == 0 and data_set.epoch_completed not in logged:
                 logged.add(data_set.epoch_completed)
-                pred, loss = self._sess.run((self._pred, self._loss), feed_dict={self._static_x: static_feature,
-                                                                                 self._is_training: True,
-                                                                                 self._y: labels})
-                print("loss of epoch {} is {}".format(data_set.epoch_completed, loss))
+                loss = self._sess.run(self._loss, feed_dict={self._static_x: static_feature,
+                                                             self._is_training: True,
+                                                             self._y: labels})
+                y_score = self.predict(test_set)
+                # auc_qx = sklearn.metrics.roc_auc_score(test_set.labels[:, 1], y_score[:, 1])
+                # auc_cx = sklearn.metrics.roc_auc_score(test_set.labels[:, 2], y_score[:, 2])
+                # auc_both = sklearn.metrics.roc_auc_score(test_set.labels[:, 3], y_score[:, 3])
+                # print("{}\t{}\t{}\t{}\t{}".format(auc_qx, auc_cx, auc_both, data_set.epoch_completed, loss))
+                auc = sklearn.metrics.roc_auc_score(test_set.labels, y_score)
+                print("{}\t{}\t{}".format(auc, data_set.epoch_completed, loss))
 
     def predict(self, test_set):
         return self._sess.run(self._pred, feed_dict={self._static_x: test_set.static_feature,
                                                      self._is_training: False})
+
+    def close(self):
+        self._sess.close()
+        tf.reset_default_graph()
+
+
+class MultiLayerPerceptron(object):
+    # TODO 所有模型learning_rate需改，在experiment中--已完成
+    def __init__(self, num_features, hidden_units=128, n_output=1, batch_size=64, epochs=1000,
+                 output_n_epoch=10, optimizer=tf.train.AdamOptimizer(),
+                 name='MLPModel'):
+        self._num_features = num_features
+        self._epochs = epochs
+        self._name = name
+        self._batch_size = batch_size
+        self._output_n_epoch = output_n_epoch
+        self._hidden_units = hidden_units
+        with tf.variable_scope(self._name):
+            self._x = tf.placeholder(tf.float32, [None, num_features], 'input')
+            self._y = tf.placeholder(tf.float32, [None, n_output], 'label')
+
+            self._sess = tf.Session()  # 会话
+
+            self._hidden_layer()
+
+            self._output = tf.contrib.layers.fully_connected(self._hidden_rep, n_output,
+                                                             activation_fn=tf.identity)  # 输出层
+            self._pred = tf.nn.sigmoid(self._output, name="pred")
+
+            self._loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=self._y, logits=self._output),
+                                        name='loss')
+            # if lasso != 0:
+            #     for trainable_variables in tf.trainable_variables(self._name):
+            #         self._loss += tf.contrib.layers.l1_regularizer(lasso)(trainable_variables)
+            # if ridge != 0:
+            #     for trainable_variables in tf.trainable_variables(self._name):
+            #         self._loss += tf.contrib.layers.l2_regularizer(ridge)(trainable_variables)
+
+            self._train_op = optimizer.minimize(self._loss)
+
+    def _hidden_layer(self):
+        self._hidden_rep = tf.contrib.layers.fully_connected(self._x, self._hidden_units, activation_fn=tf.nn.relu)
+
+    def fit(self, data_set, test_set):
+        self._sess.run(tf.global_variables_initializer())
+        data_set.epoch_completed = 0
+
+        print("auc_qx\tepoch\tloss")
+
+        logged = set()
+
+        while data_set.epoch_completed < self._epochs:
+            static_feature, _, labels = data_set.next_batch(self._batch_size)
+            self._sess.run(self._train_op, feed_dict={self._x: static_feature,
+                                                      self._y: labels})
+
+            if data_set.epoch_completed % self._output_n_epoch == 0 and data_set.epoch_completed not in logged:
+                logged.add(data_set.epoch_completed)
+                loss = self._sess.run(self._loss, feed_dict={
+                    self._x: data_set.static_feature,
+                    self._y: data_set.labels})
+
+                y_score = self.predict(test_set)  # 此处计算和打印auc仅供调参时观察auc变化用，可删除，与最终输出并无关系
+                auc = sklearn.metrics.roc_auc_score(test_set.labels, y_score)
+                print("{}\t{}\t{}".format(auc, data_set.epoch_completed, loss))
+
+    def predict(self, test_set):
+        return self._sess.run(self._pred, feed_dict={self._x: test_set.static_feature})
+
+    @property
+    def name(self):
+        return self._name
+
+    def close(self):
+        self._sess.close()
+        tf.reset_default_graph()

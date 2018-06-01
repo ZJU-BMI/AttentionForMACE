@@ -9,7 +9,8 @@ from sklearn.model_selection import StratifiedShuffleSplit  # 创建随机数并
 import tensorflow as tf
 
 from data import read_data_lu, read_data_sun, DataSet
-from models import BasicLSTMModel, BidirectionalLSTMModel, LSTMWithStaticFeature, BiLSTMWithAttentionModel, ResNet
+from models import BasicLSTMModel, BidirectionalLSTMModel, LSTMWithStaticFeature, BiLSTMWithAttentionModel, ResNet, \
+    MultiLayerPerceptron
 
 
 class ExperimentSetup(object):
@@ -206,7 +207,7 @@ def bidirectional_lstm_model_experiments(result_file):
     return model_experiments(model, data_set, result_file)
 
 
-def bi_lstm_attention_model_experiments(result_file, use_attention, use_resnet):
+def bi_lstm_attention_model_experiments(result_file, use_attention, use_mlp):
     if ExperimentSetup.data_source == 'lu':
         data_set = read_data_lu()
     else:
@@ -226,7 +227,7 @@ def bi_lstm_attention_model_experiments(result_file, use_attention, use_resnet):
                                      ExperimentSetup.lstm_size,
                                      n_output,
                                      use_attention=use_attention,
-                                     use_resnet=use_resnet,
+                                     use_mlp=use_mlp,
                                      batch_size=ExperimentSetup.batch_size,
                                      optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
                                      epochs=ExperimentSetup.epochs,
@@ -255,6 +256,26 @@ def resnet_model_experiments(result_file):
                    optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
                    epochs=ExperimentSetup.epochs,
                    output_n_epochs=ExperimentSetup.output_n_epochs)
+    return model_experiments(model, data_set, result_file)
+
+
+def mlp_model_experiment(result_file):
+    if ExperimentSetup.data_source == 'lu':
+        data_set = read_data_lu()
+    else:
+        data_set = read_data_sun()
+    static_feature = data_set.static_feature
+    labels = data_set.labels
+
+    static_n_features = static_feature.shape[1]
+    n_output = labels.shape[1]
+    model = MultiLayerPerceptron(static_n_features,
+                                 ExperimentSetup.lstm_size,
+                                 n_output,
+                                 batch_size=ExperimentSetup.batch_size,
+                                 optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
+                                 epochs=ExperimentSetup.epochs,
+                                 output_n_epoch=ExperimentSetup.output_n_epochs)
     return model_experiments(model, data_set, result_file)
 
 
@@ -289,11 +310,15 @@ if __name__ == '__main__':
     # lstm_with_static_feature_model_experiments("resources/save/lstm_with_static.csv")
     # bidirectional_lstm_model_experiments('resources/save/bidirectional_lstm.csv')
     for i_times in range(10):
-        print("res_bi-lstm_att")
-        bi_lstm_attention_model_experiments('result/LAR2-' + str(i_times+1), True, True)
-        print("bi-lstm_att")
-        bi_lstm_attention_model_experiments('result/LA2-' + str(i_times+1), True, False)
-        print("res_bi-lstm")
-        bi_lstm_attention_model_experiments('result/LR2-' + str(i_times+1), False, True)
-        print("bi-lstm")
-        bi_lstm_attention_model_experiments('result/L2-' + str(i_times+1), False, False)
+        # print("res_bi-lstm_att")
+        # bi_lstm_attention_model_experiments('result_cx/LAR1-' + str(i_times + 1), True, True)
+        # print("bi-lstm_att")
+        # bi_lstm_attention_model_experiments('result_cx/LA1-' + str(i_times + 1), True, False)
+        print("mlp_bi-lstm")
+        bi_lstm_attention_model_experiments('result/ML1-' + str(i_times + 1), False, True)
+        # print("bi-lstm")
+        # bi_lstm_attention_model_experiments('result_cx/L1-' + str(i_times + 1), False, False)
+        # print("resnet")
+        # resnet_model_experiments("result/res1-" + str(i_times + 1))
+        # print("MLP")
+        # mlp_model_experiment("result/MLP1-" + str(i_times + 1))
