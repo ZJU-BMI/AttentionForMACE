@@ -162,8 +162,8 @@ class LSTMWithStaticFeature(object):
 
             self._output = tf.contrib.layers.fully_connected(self._hidden_rep, n_output,
                                                              activation_fn=tf.identity)
-            self._pred = tf.nn.softmax(self._output, name="pred")
-            self._loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(self._y, self._output), name="loss")
+            self._pred = tf.nn.sigmoid(self._output, name="pred")
+            self._loss = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(self._y, self._output), name="loss")
             self._train_op = optimizer.minimize(self._loss)
 
             self._sess = tf.Session()
@@ -174,11 +174,13 @@ class LSTMWithStaticFeature(object):
         length = tf.cast(length, tf.int32)
         return mask, length
 
-    def fit(self, data_set):
+    def fit(self, data_set, test_set):
         self._sess.run(tf.global_variables_initializer())
         data_set.epoch_completed = 0
 
         logged = set()
+
+        print("auc_qx\tepoch\tloss")
         while data_set.epoch_completed < self._epochs:
             static_feature, dynamic_feature, labels = data_set.next_batch(self._batch_size)
             self._sess.run(self._train_op, feed_dict={self._static_input: static_feature,
@@ -190,11 +192,64 @@ class LSTMWithStaticFeature(object):
                 loss = self._sess.run(self._loss, feed_dict={self._static_input: static_feature,
                                                              self._dynamic_input: dynamic_feature,
                                                              self._y: labels})
-                print("loss of epochs {} is {}".format(data_set.epoch_completed, loss))
+                y_score = self.predict(test_set)
+                # auc_qx = sklearn.metrics.roc_auc_score(test_set.labels[:, 1], y_score[:, 1])
+                # auc_cx = sklearn.metrics.roc_auc_score(test_set.labels[:, 2], y_score[:, 2])
+                # auc_both = sklearn.metrics.roc_auc_score(test_set.labels[:, 3], y_score[:, 3])
+                # print("{}\t{}\t{}\t{}\t{}".format(auc_qx, auc_cx, auc_both, data_set.epoch_completed, loss))
+                auc = sklearn.metrics.roc_auc_score(test_set.labels, y_score)
+                print("{}\t{}\t{}".format(auc, data_set.epoch_completed, loss))
 
     def predict(self, data_set):
         return self._sess.run(self._pred, feed_dict={self._static_input: data_set.static_feature,
                                                      self._dynamic_input: data_set.dynamic_feature})
+
+    def close(self):
+        self._sess.close()
+        tf.reset_default_graph()
+
+
+class LSTMWithStaticConcat(LSTMWithStaticFeature):
+    def __init__(self, static_n_features, dynamic_n_feature, time_steps, lstm_size, n_output, batch_size=64,
+                 epochs=1000, output_n_epochs=20, optimizer=tf.train.AdamOptimizer(), name="LSTMWithStaticFeature"):
+        self._epochs = epochs
+        self._name = name
+        self._output_n_epochs = output_n_epochs
+        self._batch_size = batch_size
+
+        with tf.variable_scope(self._name):
+            self._static_input = tf.placeholder(tf.float32, [None, static_n_features])
+            self._dynamic_input = tf.placeholder(tf.float32, [None, time_steps, dynamic_n_feature])
+            expand_static_x = tf.tile(tf.expand_dims(self._static_input, 1), (1, time_steps, 1))
+            concat_x = tf.concat((expand_static_x, self._dynamic_input), -1)
+            self._y = tf.placeholder(tf.float32, [None, n_output])
+
+            self._lstm = {}
+            self._init_state = {}
+            for direction in ['forward', 'backward']:
+                self._lstm[direction] = tf.contrib.rnn.BasicLSTMCell(lstm_size)
+                self._init_state[direction] = self._lstm[direction].zero_state(tf.shape(self._dynamic_input)[0],
+                                                                               tf.float32)
+
+            mask, length = self._length()
+            self._hidden, _ = tf.nn.bidirectional_dynamic_rnn(self._lstm['forward'],
+                                                              self._lstm['backward'],
+                                                              concat_x,
+                                                              sequence_length=length,
+                                                              initial_state_fw=self._init_state['forward'],
+                                                              initial_state_bw=self._init_state['backward'])
+            self._hidden_concat = tf.concat(self._hidden, axis=2)
+            self._hidden_sum = tf.reduce_sum(self._hidden_concat, 1) / tf.tile(tf.reduce_sum(mask, 1, keep_dims=True),
+                                                                               (1, lstm_size * 2))
+            self._hidden_rep = tf.concat((self._hidden_sum, self._static_input), axis=1)
+
+            self._output = tf.contrib.layers.fully_connected(self._hidden_rep, n_output,
+                                                             activation_fn=tf.identity)
+            self._pred = tf.nn.sigmoid(self._output, name="pred")
+            self._loss = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(self._y, self._output), name="loss")
+            self._train_op = optimizer.minimize(self._loss)
+
+            self._sess = tf.Session()
 
 
 class BiLSTMWithAttentionModel(object):

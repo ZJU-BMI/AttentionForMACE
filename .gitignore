@@ -34,6 +34,9 @@ model_save/
 # result file
 result/
 result_cx/
+result_qx/
+
+*.xls
 
 # zip file
 *.zip

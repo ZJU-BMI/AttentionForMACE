@@ -10,7 +10,7 @@ import tensorflow as tf
 
 from data import read_data_lu, read_data_sun, DataSet
 from models import BasicLSTMModel, BidirectionalLSTMModel, LSTMWithStaticFeature, BiLSTMWithAttentionModel, ResNet, \
-    MultiLayerPerceptron
+    MultiLayerPerceptron, LSTMWithStaticConcat
 
 
 class ExperimentSetup(object):
@@ -123,7 +123,7 @@ def model_experiments(model, data_set, result_file):
     static_feature = data_set.static_feature
     dynamic_feature = data_set.dynamic_feature
     labels = data_set.labels
-    kf = sklearn.model_selection.StratifiedKFold(n_splits=ExperimentSetup.kfold, shuffle=False)
+    kf = sklearn.model_selection.StratifiedKFold(n_splits=ExperimentSetup.kfold, shuffle=True)
 
     n_output = labels.shape[1]  # classes
 
@@ -305,20 +305,50 @@ def lstm_with_static_feature_model_experiments(result_file):
     return model_experiments(model, data_set, result_file)
 
 
+def lstm_with_static_concat_model_experiments(result_file):
+    if ExperimentSetup.data_source == 'lu':
+        data_set = read_data_lu()
+    else:
+        data_set = read_data_sun()
+    static_feature = data_set.static_feature
+    dynamic_feature = data_set.dynamic_feature
+    labels = data_set.labels
+
+    static_n_features = static_feature.shape[1]
+    dynamic_n_features = dynamic_feature.shape[2]
+    time_steps = dynamic_feature.shape[1]
+    n_output = labels.shape[1]
+
+    model = LSTMWithStaticConcat(static_n_features,
+                                 dynamic_n_features,
+                                 time_steps,
+                                 ExperimentSetup.lstm_size,
+                                 n_output,
+                                 batch_size=ExperimentSetup.batch_size,
+                                 optimizer=tf.train.AdamOptimizer(ExperimentSetup.learning_rate),
+                                 epochs=ExperimentSetup.epochs,
+                                 output_n_epochs=ExperimentSetup.output_n_epochs)
+    return model_experiments(model, data_set, result_file)
+
+
 if __name__ == '__main__':
     # basic_lstm_model_experiments('resources/save/basic_lstm.csv')
     # lstm_with_static_feature_model_experiments("resources/save/lstm_with_static.csv")
     # bidirectional_lstm_model_experiments('resources/save/bidirectional_lstm.csv')
     for i_times in range(10):
-        # print("res_bi-lstm_att")
-        # bi_lstm_attention_model_experiments('result_cx/LAR1-' + str(i_times + 1), True, True)
-        # print("bi-lstm_att")
-        # bi_lstm_attention_model_experiments('result_cx/LA1-' + str(i_times + 1), True, False)
-        print("mlp_bi-lstm")
-        bi_lstm_attention_model_experiments('result/ML1-' + str(i_times + 1), False, True)
-        # print("bi-lstm")
-        # bi_lstm_attention_model_experiments('result_cx/L1-' + str(i_times + 1), False, False)
+        # print("mlp_bi-lstm_att")
+        # bi_lstm_attention_model_experiments('result_qx/MLA1-' + str(i_times + 1), True, True)
+        print("bi-lstm_att")
+        bi_lstm_attention_model_experiments('result_qx_20/LA2-' + str(i_times + 1), True, False)
+        # print("mlp_bi-lstm")
+        # bi_lstm_attention_model_experiments('result_qx/ML1-' + str(i_times + 1), False, True)
+        print("bi-lstm")
+        bi_lstm_attention_model_experiments('result_qx_20/L2-' + str(i_times + 1), False, False)
         # print("resnet")
         # resnet_model_experiments("result/res1-" + str(i_times + 1))
-        # print("MLP")
-        # mlp_model_experiment("result/MLP1-" + str(i_times + 1))
+        # print("LSTM+STATIC")
+        # lstm_with_static_feature_model_experiments("result_qx/L+s1-")
+        print("LSTM+STATIC_concat")
+        lstm_with_static_feature_model_experiments("result_qx_20/L+sc2-")
+        print("MLP")
+        mlp_model_experiment("result_qx_20/MLP2-" + str(i_times + 1))
