@@ -167,7 +167,7 @@ def read_data_lu():
         elif np.all(label == [[1, 0]]):  # 缺血
             label = [0, 1]
         elif np.all(label == [[0, 1]]):  # 出血
-            label = [1, 0]
+            label = [0, 1]
         else:
             label = [0, 1]  # 缺血，出血
 
@@ -178,7 +178,8 @@ def read_data_lu():
         labels.append(label)
     labels = np.array(labels)
     labels = np.expand_dims(labels[:, 1], 1)
-    return DataSet(static_feature, dynamic_feature, labels)
+    print("using data of 1 days")
+    return DataSet(static_feature, dynamic_feature[:, 0:1, :], labels)
 
 
 if __name__ == "__main__":

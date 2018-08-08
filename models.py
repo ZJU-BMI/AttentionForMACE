@@ -255,7 +255,7 @@ class LSTMWithStaticConcat(LSTMWithStaticFeature):
 class BiLSTMWithAttentionModel(object):
     def __init__(self, static_features, dynamic_features, time_steps, lstm_size, n_output, use_attention=True,
                  use_mlp=True, batch_size=64, epochs=1000, output_n_epoch=10, optimizer=tf.train.AdamOptimizer(),
-                 name='BasicLSTMModel'):
+                 lasso=0, ridge=0, name='BasicLSTMModel'):
         self._static_features = static_features
         self._dynamic_features = dynamic_features
         self._time_steps = time_steps
@@ -281,6 +281,12 @@ class BiLSTMWithAttentionModel(object):
             self._pred = tf.nn.sigmoid(self._output, name="pred")
 
             self._loss = tf.reduce_mean(tf.losses.sigmoid_cross_entropy(self._y, self._output), name='loss')
+            if lasso != 0:
+                for trainable_variables in tf.trainable_variables(self._name):
+                    self._loss += tf.contrib.layers.l1_regularizer(lasso)(trainable_variables)
+            if ridge != 0:
+                for trainable_variables in tf.trainable_variables(self._name):
+                    self._loss += tf.contrib.layers.l2_regularizer(ridge)(trainable_variables)
             self._train_op = optimizer.minimize(self._loss)
 
             self._sess = tf.Session()  # 会话
@@ -334,9 +340,9 @@ class BiLSTMWithAttentionModel(object):
         # 自己的设想尝试？
         if self._use_attention:
             static_trans = tf.nn.sigmoid(self._static_x)
+            # static_trans = tf.contrib.layers.fully_connected(self._static_x, 200, activation_fn=tf.nn.sigmoid)
             static_trans = tf.expand_dims(static_trans, 2)
-            dynamic_trans = tf.contrib.layers.fully_connected(self._dynamic_x, self._static_features,
-                                                              activation_fn=tf.nn.sigmoid)
+            dynamic_trans = tf.nn.sigmoid(tf.contrib.layers.fully_connected(self._dynamic_x, self._static_features))
             attention_logits = tf.reshape(tf.matmul(dynamic_trans, static_trans), [-1, self._time_steps])
             self._attention_weight = self._variable_length_softmax(attention_logits, length)
             self._hidden_rep = tf.reshape(tf.matmul(tf.reshape(self._attention_weight, [-1, 1, self._time_steps]),
@@ -346,7 +352,10 @@ class BiLSTMWithAttentionModel(object):
                                                                                (1, self._lstm_size * 2))
 
         if self._use_mlp:
-            self._mlp_output = tf.contrib.layers.fully_connected(self._static_x, 200, activation_fn=tf.nn.relu)
+            self._mlp_output = tf.contrib.layers.fully_connected(
+                tf.contrib.layers.fully_connected(self._static_x, 200, activation_fn=tf.nn.relu), 100,
+                activation_fn=tf.nn.relu)
+            # self._mlp_output = tf.contrib.layers.fully_connected(self._static_x, 200, activation_fn=tf.nn.relu)
             self._hidden_rep = tf.concat((self._hidden_rep, self._mlp_output), 1)
 
     def _variable_length_softmax(self, logits, length):
@@ -365,8 +374,10 @@ class BiLSTMWithAttentionModel(object):
         self._sess.run(tf.global_variables_initializer())
         data_set.epoch_completed = 0
 
-        logged = set()
+        for c in tf.trainable_variables(self._name):
+            print(c.name)
 
+        logged = set()
         print("auc_qx\tepoch\tloss")
         while data_set.epoch_completed < self._epochs:
             static_feature, dynamic_feature, labels = data_set.next_batch(self._batch_size)

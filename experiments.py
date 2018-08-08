@@ -21,8 +21,8 @@ class ExperimentSetup(object):
     random_state = 1
 
     lstm_size = 200
-    learning_rate = 0.0001
-    epochs = 20
+    learning_rate = 0.01
+    epochs = 30
     output_n_epochs = 1
     data_source = "lu"
 
@@ -123,7 +123,7 @@ def model_experiments(model, data_set, result_file):
     static_feature = data_set.static_feature
     dynamic_feature = data_set.dynamic_feature
     labels = data_set.labels
-    kf = sklearn.model_selection.StratifiedKFold(n_splits=ExperimentSetup.kfold, shuffle=True)
+    kf = sklearn.model_selection.StratifiedKFold(n_splits=ExperimentSetup.kfold, shuffle=False)
 
     n_output = labels.shape[1]  # classes
 
@@ -335,20 +335,22 @@ if __name__ == '__main__':
     # basic_lstm_model_experiments('resources/save/basic_lstm.csv')
     # lstm_with_static_feature_model_experiments("resources/save/lstm_with_static.csv")
     # bidirectional_lstm_model_experiments('resources/save/bidirectional_lstm.csv')
-    for i_times in range(10):
+    for i_times in range(3):
         # print("mlp_bi-lstm_att")
         # bi_lstm_attention_model_experiments('result_qx/MLA1-' + str(i_times + 1), True, True)
         print("bi-lstm_att")
-        bi_lstm_attention_model_experiments('result_qx_20/LA2-' + str(i_times + 1), True, False)
+        bi_lstm_attention_model_experiments('result_MACE_30_ns_1day_1E2/LA1-' + str(i_times + 1), True, False)
         # print("mlp_bi-lstm")
         # bi_lstm_attention_model_experiments('result_qx/ML1-' + str(i_times + 1), False, True)
         print("bi-lstm")
-        bi_lstm_attention_model_experiments('result_qx_20/L2-' + str(i_times + 1), False, False)
+        bi_lstm_attention_model_experiments('result_MACE_30_ns_1day_1E2/L1-' + str(i_times + 1), False, False)
         # print("resnet")
         # resnet_model_experiments("result/res1-" + str(i_times + 1))
         # print("LSTM+STATIC")
         # lstm_with_static_feature_model_experiments("result_qx/L+s1-")
         print("LSTM+STATIC_concat")
-        lstm_with_static_feature_model_experiments("result_qx_20/L+sc2-")
-        print("MLP")
-        mlp_model_experiment("result_qx_20/MLP2-" + str(i_times + 1))
+        lstm_with_static_feature_model_experiments("result_MACE_30_ns_1day_1E2/L+sc1-" + str(i_times + 1))
+        # print("MLP")
+        # mlp_model_experiment("result_BI_20/MLP2-" + str(i_times + 1))
+        print("lstm+mlp")
+        bi_lstm_attention_model_experiments('result_MACE_30_ns_1day_1E2/L+mR1-' + str(i_times + 1), False, True)
